@@ -250,24 +250,32 @@ void MPM3D::calculate_force_and_rasterize(real delta_t) {
             PREPROCESS_KERNELS
             const Vector pos = p.pos, v = p.v;
             const real mass = p.mass;
-            const Matrix apic_b_3_mass = p.apic_b * (3.0f * mass);
-            const Vector3 mass_v = mass * v;
-            const Matrix delta_t_tmp_force = delta_t * p.tmp_force;
-            Vector4s delta_velocity_and_mass;
-            delta_velocity_and_mass[3] = mass;
+            // We enlarge Matrix 3x3 to Matrix 4x4 for SIMD.
+            // It is, however, better to use Matrix 4x3 in the future.
+            const Matrix4s apic_b_3_mass = Matrix4s(p.apic_b) * (3.0f * mass);
+            const Vector4s mass_v = mass * v;
+            Matrix4s apic_b_3_mass_with_mass_v = apic_b_3_mass;
+            apic_b_3_mass_with_mass_v[3] = mass_v;
+            apic_b_3_mass_with_mass_v[3][3] = mass;
+
+            // apic_b_mass_with_mass_v
+            // ----------------------------
+            //               |
+            //    APIC       |   mass * v
+            // --------------|
+            //       0             mass
+            // ----------------------------
+
+            const Matrix4s delta_t_tmp_force = delta_t * Matrix4s(p.tmp_force);
             for (auto &ind : get_bounded_rasterization_region(pos)) {
-                Vector3 d_pos = Vector(ind.i, ind.j, ind.k) - pos;
+                Vector4s d_pos = Vector4s(ind.i, ind.j, ind.k, 1.0) - pos;
                 CALCULATE_COMBINED_WEIGHT_AND_GRADIENT
-                // Originally
-                // v + 3 * apic_b * d_pos;
-                Vector3 rast_v = mass_v + (apic_b_3_mass * d_pos);
-                delta_velocity_and_mass[0] = rast_v[0];
-                delta_velocity_and_mass[1] = rast_v[1];
-                delta_velocity_and_mass[2] = rast_v[2];
+                // v_contribution = v + 3 * apic_b * d_pos;
+                // Vector4s rast_v = mass_v + (apic_b_3_mass * d_pos);
                 LOCK_GRID
-                // Note: delta_t_tmp_force[3] = 0
                 grid_velocity_and_mass[ind] +=
-                        dw_w[3] * delta_velocity_and_mass + Vector4s(delta_t_tmp_force * dw_w.to_vec3());
+                        dw_w[3] * apic_b_3_mass_with_mass_v * d_pos +
+                        delta_t_tmp_force.multiply_vec3(dw_w);
                 UNLOCK_GRID
             }
         });

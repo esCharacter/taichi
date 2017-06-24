@@ -157,4 +157,84 @@ inline void print(const Vector4s v) {
     printf("\n");
 }
 
+// SIMD Matrix4
+struct TC_ALIGNED(64) Matrix4s {
+    union {
+        // Four columns, instead of rows!
+        Vector4s v[4];
+    };
+
+    // without zero-initialization
+    Matrix4s(void *) {};
+
+    Matrix4s() {
+        v[0] = 0.0f;
+        v[1] = 0.0f;
+        v[2] = 0.0f;
+        v[3] = 0.0f;
+    }
+
+    Matrix4s(Vector4s v0, Vector4s v1, Vector4s v2, Vector4s v3) : v{v0, v1, v2, v3} {}
+
+    Matrix4s(const Matrix4 &o) {
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                v[i][j] = o[i][j];
+            }
+        }
+    }
+
+    Matrix4s(const Matrix3 &o) {
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                v[i][j] = o[i][j];
+            }
+            v[i][3] = 0.0f;
+        }
+        v[3] = 0.0f;
+    }
+
+    Vector4s &operator[](int i) { return v[i]; }
+
+    const Vector4s &operator[](int i) const { return v[i]; }
+
+    Vector4s operator*(const Vector4s &o) const {
+        Vector4s ret = o.broadcast<3>() * v[3];
+        ret = fused_mul_add(v[2], o.broadcast<2>(), ret);
+        ret = fused_mul_add(v[1], o.broadcast<1>(), ret);
+        ret = fused_mul_add(v[0], o.broadcast<0>(), ret);
+        return ret;
+    }
+
+    Vector4s multiply_vec3(const Vector4s &o) const {
+        Vector4s ret = o.broadcast<2>() * v[2];
+        ret = fused_mul_add(v[1], o.broadcast<1>(), ret);
+        ret = fused_mul_add(v[0], o.broadcast<0>(), ret);
+        return ret;
+    }
+};
+
+inline Matrix4s operator*(const float a, const Matrix4s &M) {
+    Matrix4s ret(nullptr);
+    ret[0] = a * M[0];
+    ret[1] = a * M[1];
+    ret[2] = a * M[2];
+    ret[3] = a * M[3];
+    return ret;
+}
+
+inline Matrix4s operator*(const Matrix4s &m, const float a) {
+    return a * m;
+}
+
+inline void print(const Matrix4s &v) {
+    printf("\n");
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            printf("%f ", v[j][i]);
+        }
+        printf("\n");
+    }
+}
+
 TC_NAMESPACE_END
