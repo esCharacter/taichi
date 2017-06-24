@@ -64,6 +64,8 @@ TC_NAMESPACE_BEGIN
 
 #define CALCULATE_COMBINED_WEIGHT_AND_GRADIENT \
     Vector4s dw_w = w_stages[0][ind.i - base_i] * w_stages[1][ind.j - base_j] * w_stages[2][ind.k - base_k];
+#define CALCULATE_COMBINED_WEIGHT_AND_GRADIENT_FOR \
+    Vector4s dw_w = w_stages[0][i] * w_stages[1][j] * w_stages[2][k];
 
 
 #define CALCULATE_WEIGHT \
@@ -267,16 +269,45 @@ void MPM3D::calculate_force_and_rasterize(real delta_t) {
             // ----------------------------
 
             const Matrix4s delta_t_tmp_force = delta_t * Matrix4s(p.tmp_force);
-            for (auto &ind : get_bounded_rasterization_region(pos)) {
-                Vector4s d_pos = Vector4s(ind.i, ind.j, ind.k, 1.0) - pos;
-                CALCULATE_COMBINED_WEIGHT_AND_GRADIENT
-                // v_contribution = v + 3 * apic_b * d_pos;
-                // Vector4s rast_v = mass_v + (apic_b_3_mass * d_pos);
-                LOCK_GRID
-                grid_velocity_and_mass[ind] +=
-                        dw_w[3] * apic_b_3_mass_with_mass_v * d_pos +
-                        delta_t_tmp_force.multiply_vec3(dw_w);
-                UNLOCK_GRID
+            int x = int(pos.x);
+            int y = int(pos.y);
+            int z = int(pos.z);
+            int x_min = x - 1;
+            int y_min = y - 1;
+            int z_min = z - 1;
+            for (int i = 0; i < 4; i++) {
+                for (int j = 0; j < 4; j++) {
+                    // v_contribution = v + 3 * apic_b * d_pos;
+                    // Vector4s rast_v = mass_v + (apic_b_3_mass * d_pos);
+
+                    const Vector4s dw_2 = w_stages[0][i] * w_stages[1][j];
+                    Vector4s *ptr = &grid_velocity_and_mass[x_min + i][y_min + j][z_min];
+
+                    const Vector4s d_pos = Vector4s(x_min + i, y_min + j, z_min, 1.0) - pos;
+
+                    Vector4s base_vel_and_mass = apic_b_3_mass_with_mass_v * d_pos;
+                    Vector4s dw_w = dw_2 * w_stages[2][0];
+                    *ptr += dw_w[3] * base_vel_and_mass +
+                            delta_t_tmp_force.multiply_vec3(dw_w);
+                    ptr += 1;
+
+                    base_vel_and_mass += apic_b_3_mass_with_mass_v[2];
+                    dw_w = dw_2 * w_stages[2][1];
+                    *ptr += dw_w[3] * base_vel_and_mass +
+                            delta_t_tmp_force.multiply_vec3(dw_w);
+                    ptr += 1;
+
+                    base_vel_and_mass += apic_b_3_mass_with_mass_v[2];
+                    dw_w = dw_2 * w_stages[2][2];
+                    *ptr += dw_w[3] * base_vel_and_mass +
+                            delta_t_tmp_force.multiply_vec3(dw_w);
+                    ptr += 1;
+
+                    base_vel_and_mass += apic_b_3_mass_with_mass_v[2];
+                    dw_w = dw_2 * w_stages[2][3];
+                    *ptr += dw_w[3] * base_vel_and_mass +
+                            delta_t_tmp_force.multiply_vec3(dw_w);
+                }
             }
         });
     }
