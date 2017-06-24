@@ -54,7 +54,17 @@ TC_NAMESPACE_BEGIN
     } \
     const int base_i = int(floor(p.pos[0])) - 1; \
     const int base_j = int(floor(p.pos[1])) - 1; \
-    const int base_k = int(floor(p.pos[2])) - 1;
+    const int base_k = int(floor(p.pos[2])) - 1; \
+    Vector4s w_stages[3][4]; \
+    for (int k = 0; k < 4; k++) { \
+        w_stages[0][k] = Vector4s(dw_cache[0][k], w_cache[0][k], w_cache[0][k], w_cache[0][k]); \
+        w_stages[1][k] = Vector4s(w_cache[1][k], dw_cache[1][k], w_cache[1][k], w_cache[1][k]); \
+        w_stages[2][k] = Vector4s(w_cache[2][k], w_cache[2][k], dw_cache[2][k], w_cache[2][k]); \
+    }
+
+#define CALCULATE_COMBINED_WEIGHT_AND_GRADIENT \
+    Vector4s dw_w = w_stages[0][ind.i - base_i] * w_stages[1][ind.j - base_j] * w_stages[2][ind.k - base_k];
+
 
 #define CALCULATE_WEIGHT \
     const real weight = w_cache[0][ind.i - base_i] * w_cache[1][ind.j - base_j] * w_cache[2][ind.k - base_k];
@@ -247,8 +257,7 @@ void MPM3D::calculate_force_and_rasterize(real delta_t) {
             delta_velocity_and_mass[3] = mass;
             for (auto &ind : get_bounded_rasterization_region(pos)) {
                 Vector3 d_pos = Vector(ind.i, ind.j, ind.k) - pos;
-                CALCULATE_WEIGHT
-                CALCULATE_GRADIENT
+                CALCULATE_COMBINED_WEIGHT_AND_GRADIENT
                 // Originally
                 // v + 3 * apic_b * d_pos;
                 Vector3 rast_v = mass_v + (apic_b_3_mass * d_pos);
@@ -256,7 +265,9 @@ void MPM3D::calculate_force_and_rasterize(real delta_t) {
                 delta_velocity_and_mass[1] = rast_v[1];
                 delta_velocity_and_mass[2] = rast_v[2];
                 LOCK_GRID
-                grid_velocity_and_mass[ind] += weight * delta_velocity_and_mass + Vector4s(delta_t_tmp_force * dw);
+                // Note: delta_t_tmp_force[3] = 0
+                grid_velocity_and_mass[ind] +=
+                        dw_w[3] * delta_velocity_and_mass + Vector4s(delta_t_tmp_force * dw_w.to_vec3());
                 UNLOCK_GRID
             }
         });
