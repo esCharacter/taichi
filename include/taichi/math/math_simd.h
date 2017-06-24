@@ -96,6 +96,38 @@ struct TC_ALIGNED(16) Vector4s {
     Vector3 to_vec3() const {
         return Vector3(x, y, z);
     }
+
+    template <int a, int b, int c, int d>
+    Vector4s permute() const {
+        return _mm_permute_ps(v, _MM_SHUFFLE(a, b, c, d));
+    }
+
+    template <int a>
+    Vector4s broadcast() const {
+        return permute<a, a, a, a>();
+    }
+
+    // TODO: vectorize ?
+    Vector4s abs() const {
+        return Vector4s(
+                std::abs(x),
+                std::abs(y),
+                std::abs(z),
+                std::abs(w)
+        );
+    }
+
+    Vector4s max() const {
+        return std::max(std::max(v[0], v[1]), std::max(v[2], v[3]));
+    }
+
+    float length2() const {
+        return _mm_cvtss_f32(_mm_dp_ps(v, v, 0xf1));
+    }
+
+    float length() const {
+        return std::sqrt(length2());
+    }
 };
 
 // FMA: a * b + c
