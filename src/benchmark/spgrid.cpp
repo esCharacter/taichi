@@ -109,6 +109,7 @@ class SPGrid {
 private:
     T *data;
     size_t size_bytes;
+    std::vector<uint64> active_page_mask;
 
 public:
 
@@ -163,6 +164,10 @@ public:
         Check_Compliance();
         size_bytes = res_x * res_y * res_z * sizeof(T);
         data = (T *)allocate(size_bytes);
+        active_page_mask.resize(res_x * res_y * res_z / block_xsize / block_ysize / block_zsize / 64);
+        for (int i = 0; i < (int)active_page_mask.size(); i++) {
+            active_page_mask[i] = 0UL;
+        }
     }
 
     uint64 map_coord(const Vector3i &coord) const {
@@ -249,6 +254,19 @@ public:
         }
         return pages;
     }
+
+    void update_page_mask() {
+        memset(&active_page_mask[0], sizeof(uint64) * active_page_mask.size(), 0);
+        uint64 index = 0;
+        for (int i = 0; i < res_x; i += block_xsize) {
+            for (int j = 0; j < res_y; j += block_ysize) {
+                for (int k = 0; k < res_z; k += block_zsize) {
+                    index += 1;
+                    active_page_mask[index >> 6] |= uint64(coord_in_memory(Vector3i(i, j, k)) << (index % 64));
+                }
+            }
+        }
+    }
 };
 
 class SPGridBenchmark : public Benchmark {
@@ -284,7 +302,7 @@ protected:
 
 public:
     bool test() const override {
-        SPGrid<Vector4s> grid;
+        SPGrid <Vector4s> grid;
         for (int i = 0; i < 100; i++) {
             //P(grid.map_coord(i, i, i));
             grid(i, i, i) = Vector4s(i);

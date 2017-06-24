@@ -16,7 +16,6 @@
 #include <thread>
 #include <vector>
 
-
 #ifdef TC_USE_OPENMP
 
 #include <omp.h>

@@ -160,6 +160,8 @@ public:
         return mpi_world_rank;
     }
 
+    void clear_boundary_particles();
+
     ~MPM3D();
 };
 

@@ -26,7 +26,7 @@
 
 TC_NAMESPACE_BEGIN
 
-#define TC_MPM_USE_LOCKS
+// #define TC_MPM_USE_LOCKS
 #ifdef TC_MPM_USE_LOCKS
 #define LOCK_GRID grid_locks[ind].lock();
 #define UNLOCK_GRID grid_locks[ind].unlock();
@@ -35,45 +35,6 @@ TC_NAMESPACE_BEGIN
 #define UNLOCK_GRID
 #endif
 
-// Note: assuming abs(x) <= 2!!
-inline real w(real x) {
-    x = abs(x);
-#ifdef CV_ON
-    assert(x <= 2);
-#endif
-    if (x < 1) {
-        return 0.5f * x * x * x - x * x + 2.0f / 3.0f;
-    } else {
-        return -1.0f / 6.0f * x * x * x + x * x - 2 * x + 4.0f / 3.0f;
-    }
-}
-
-// Note: assuming abs(x) <= 2!!
-inline real dw(real x) {
-    real s = x < 0.0f ? -1.0f : 1.0f;
-    x *= s;
-#ifdef CV_ON
-    assert(x <= 2.0f);
-#endif
-    real val;
-    real xx = x * x;
-    if (x < 1.0f) {
-        val = 1.5f * xx - 2.0f * x;
-    } else {
-        val = -0.5f * xx + 2.0f * x - 2.0f;
-    }
-    return s * val;
-}
-
-/*
-inline real w(const Vector3 &a) {
-    return w(a.x) * w(a.y) * w(a.z);
-}
-
-inline Vector3 dw(const Vector3 &a) {
-    return Vector3(dw(a.x) * w(a.y) * w(a.z), w(a.x) * dw(a.y) * w(a.z), w(a.x) * w(a.y) * dw(a.z));
-}
-*/
 
 #define PREPROCESS_KERNELS\
     Vector4s w_cache[3]; \
@@ -104,7 +65,6 @@ inline Vector3 dw(const Vector3 &a) {
             w_cache[0][ind.i - base_i] * dw_cache[1][ind.j - base_j] * w_cache[2][ind.k - base_k], \
             w_cache[0][ind.i - base_i] * w_cache[1][ind.j - base_j] * dw_cache[2][ind.k - base_k] \
     );
-
 
 void MPM3D::initialize(const Config &config) {
     Simulation3D::initialize(config);
@@ -295,14 +255,8 @@ void MPM3D::calculate_force_and_rasterize(real delta_t) {
                 delta_velocity_and_mass[0] = rast_v[0];
                 delta_velocity_and_mass[1] = rast_v[1];
                 delta_velocity_and_mass[2] = rast_v[2];
-
-                const Vector force = delta_t_tmp_force * dw;
-                const Vector4 delta_from_force = Vector4(force.x, force.y, force.z, 0.0f);
-                CV(force);
-                CV(p.tmp_force);
-                CV(gw);
                 LOCK_GRID
-                grid_velocity_and_mass[ind] += weight * delta_velocity_and_mass + delta_from_force;
+                grid_velocity_and_mass[ind] += weight * delta_velocity_and_mass + Vector4s(delta_t_tmp_force * dw);
                 UNLOCK_GRID
             }
         });
@@ -368,10 +322,10 @@ void MPM3D::substep() {
     Profiler _p("mpm_substep");
     synchronize_particles();
     if (!particles.empty()) {
-        scheduler.update_particle_groups();
-        scheduler.reset_particle_states();
-        old_t_int = current_t_int;
         if (async) {
+            scheduler.update_particle_groups();
+            scheduler.reset_particle_states();
+            old_t_int = current_t_int;
             scheduler.reset();
             scheduler.update_dt_limits(current_t);
 
@@ -390,6 +344,9 @@ void MPM3D::substep() {
             // sync
             t_int_increment = 1;
             scheduler.states = 2;
+            scheduler.update_particle_groups();
+            scheduler.reset_particle_states();
+            old_t_int = current_t_int;
             for (auto &p : particles) {
                 p->state = MPM3Particle::UPDATING;
             }
@@ -448,6 +405,7 @@ void MPM3D::substep() {
         if (async) {
             scheduler.enforce_smoothness(original_t_int_increment);
         }
+        TC_PROFILE("clean boundary", clear_boundary_particles());
     }
 }
 
@@ -649,6 +607,26 @@ bool MPM3D::test() const {
         }
     }
     return false;
+}
+
+void MPM3D::clear_boundary_particles() {
+    std::vector<MPM3Particle *> particles;
+    real bound = 3.0f;
+    int deleted = 0;
+    for (auto p : scheduler.get_active_particles()) {
+        auto pos = p->pos;
+        if (pos.x < bound || pos.y < bound || pos.z < bound ||
+            pos.x > res[0] - bound || pos.y > res[1] - bound || pos.z > res[2] - bound) {
+            deleted += 1;
+            continue;
+        }
+        particles.push_back(p);
+    }
+    if (deleted != 0) {
+        printf("Warning: %d boundary particles deleted\n", deleted);
+        P(particles.size());
+    }
+    scheduler.active_particles = particles;
 }
 
 MPM3D::~MPM3D() {
