@@ -178,26 +178,37 @@ void MPM3D::resample() {
         Vector3 pos = p.pos;
         int count = 0;
         PREPROCESS_KERNELS
-        for (auto &ind : get_bounded_rasterization_region(pos)) {
-            count++;
-            CALCULATE_WEIGHT
-            CALCULATE_GRADIENT
-            const Vector grid_vel = grid_velocity[ind];
-            const Vector weight_grid_vel = weight * grid_vel;
-            v += weight_grid_vel;
-            const Vector aa = weight_grid_vel;
-            const Vector bb = Vector3(ind.i, ind.j, ind.k) - pos;
-            Matrix out(aa[0] * bb[0], aa[1] * bb[0], aa[2] * bb[0],
-                       aa[0] * bb[1], aa[1] * bb[1], aa[2] * bb[1],
-                       aa[0] * bb[2], aa[1] * bb[2], aa[2] * bb[2]);
-            b += out;
+
+
+        int x = int(pos.x);
+        int y = int(pos.y);
+        int z = int(pos.z);
+        int x_min = x - 1;
+        int y_min = y - 1;
+        int z_min = z - 1;
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                for (int k = 0; k < 4; k++) {
+                    CALCULATE_COMBINED_WEIGHT_AND_GRADIENT_FOR
+                    const Vector grid_vel = grid_velocity[x_min + i][y_min + j][z_min + k];
+                    const Vector weight_grid_vel = dw_w[3] * grid_vel;
+                    v += weight_grid_vel;
+                    const Vector aa = weight_grid_vel;
+                    const Vector bb = Vector3(x_min + i, y_min + j, z_min + k) - pos;
+                    Matrix out(aa[0] * bb[0], aa[1] * bb[0], aa[2] * bb[0],
+                               aa[0] * bb[1], aa[1] * bb[1], aa[2] * bb[1],
+                               aa[0] * bb[2], aa[1] * bb[2], aa[2] * bb[2]);
+                    b += out;
 #ifdef TC_MPM_WITH_FLIP
-            bv += weight * grid_velocity_backup[ind];
+                    bv += weight * grid_velocity_backup[ind];
 #endif
-            cdg += glm::outerProduct(grid_vel, dw);
-            CV(grid_vel);
+                    Vector3 dw(dw_w[0], dw_w[1], dw_w[2]);
+                    cdg += glm::outerProduct(grid_vel, dw);
+                    CV(grid_vel);
+                }
+            }
         }
-        if (count != 64 || !apic) {
+        if (!apic) {
             b = Matrix(0);
         }
         // We should use an std::exp here, but that is too slow...

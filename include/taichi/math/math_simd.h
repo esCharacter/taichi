@@ -158,14 +158,11 @@ inline void print(const Vector4s v) {
 }
 
 // SIMD Matrix4
-struct TC_ALIGNED(64) Matrix4s {
+struct TC_ALIGNED(16) Matrix4s {
     union {
         // Four columns, instead of rows!
         Vector4s v[4];
     };
-
-    // without zero-initialization
-    Matrix4s(void *) {};
 
     Matrix4s() {
         v[0] = 0.0f;
@@ -215,7 +212,7 @@ struct TC_ALIGNED(64) Matrix4s {
 };
 
 inline Matrix4s operator*(const float a, const Matrix4s &M) {
-    Matrix4s ret(nullptr);
+    Matrix4s ret;
     ret[0] = a * M[0];
     ret[1] = a * M[1];
     ret[2] = a * M[2];
