@@ -67,7 +67,6 @@ TC_NAMESPACE_BEGIN
 #define CALCULATE_COMBINED_WEIGHT_AND_GRADIENT_FOR \
     Vector4s dw_w = w_stages[0][i] * w_stages[1][j] * w_stages[2][k];
 
-
 #define CALCULATE_WEIGHT \
     const real weight = w_cache[0][ind.i - base_i] * w_cache[1][ind.j - base_j] * w_cache[2][ind.k - base_k];
 
@@ -173,13 +172,12 @@ void MPM3D::resample() {
     parallel_for_each_active_particle([&](MPM3Particle &p) {
         real delta_t = base_delta_t * (current_t_int - p.last_update);
         Vector v(0.0f), bv(0.0f);
-        Matrix cdg(0.0f);
         Matrix b(0.0f);
+        Matrix cdg(0.0f);
+        Matrix3s b_s(0.0f);
+        Matrix3s cdg_s(0.0f);
         Vector3 pos = p.pos;
-        int count = 0;
         PREPROCESS_KERNELS
-
-
         int x = int(pos.x);
         int y = int(pos.y);
         int z = int(pos.z);
@@ -205,8 +203,19 @@ void MPM3D::resample() {
                     Vector3 dw(dw_w[0], dw_w[1], dw_w[2]);
                     cdg += glm::outerProduct(grid_vel, dw);
                     CV(grid_vel);
+
+                    b_s += Matrix3s::outer_product(Vector3(x_min + i, y_min + j, z_min + k) - pos, dw_w[3] * grid_vel);
+                    cdg_s += Matrix3s::outer_product(dw, grid_vel);
                 }
             }
+        }
+        if((b_s - Matrix3s(b)).frobenius_norm() > 1e-5) {
+            P(b_s); P(b);
+            error("mismatch");
+        }
+        if((cdg_s - Matrix3s(cdg)).frobenius_norm() > 1e-5) {
+            P(cdg_s); P(cdg);
+            error("mismatch");
         }
         if (!apic) {
             b = Matrix(0);
