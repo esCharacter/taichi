@@ -171,11 +171,9 @@ void MPM3D::resample() {
         alpha_delta_t = 0;
     parallel_for_each_active_particle([&](MPM3Particle &p) {
         real delta_t = base_delta_t * (current_t_int - p.last_update);
-        Vector v(0.0f), bv(0.0f);
-        Matrix b(0.0f);
-        Matrix cdg(0.0f);
-        Matrix3s b_s(0.0f);
-        Matrix3s cdg_s(0.0f);
+        Vector4s v(0.0f), bv(0.0f);
+        Matrix3s b(0.0f);
+        Matrix3s cdg(0.0f);
         Vector3 pos = p.pos;
         PREPROCESS_KERNELS
         int x = int(pos.x);
@@ -184,53 +182,65 @@ void MPM3D::resample() {
         int x_min = x - 1;
         int y_min = y - 1;
         int z_min = z - 1;
+        // TODO: FLIP velocity sample is temporarily disabled
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
-                for (int k = 0; k < 4; k++) {
-                    CALCULATE_COMBINED_WEIGHT_AND_GRADIENT_FOR
-                    const Vector grid_vel = grid_velocity[x_min + i][y_min + j][z_min + k];
-                    const Vector weight_grid_vel = dw_w[3] * grid_vel;
-                    v += weight_grid_vel;
-                    const Vector aa = weight_grid_vel;
-                    const Vector bb = Vector3(x_min + i, y_min + j, z_min + k) - pos;
-                    Matrix out(aa[0] * bb[0], aa[1] * bb[0], aa[2] * bb[0],
-                               aa[0] * bb[1], aa[1] * bb[1], aa[2] * bb[1],
-                               aa[0] * bb[2], aa[1] * bb[2], aa[2] * bb[2]);
-                    b += out;
-#ifdef TC_MPM_WITH_FLIP
-                    bv += weight * grid_velocity_backup[ind];
-#endif
-                    Vector3 dw(dw_w[0], dw_w[1], dw_w[2]);
-                    cdg += glm::outerProduct(grid_vel, dw);
-                    CV(grid_vel);
+                // Note: forth coordinate of the second parameter to Matrix3s::outer_product
+                // is ignored.
+                //
+                int k;
 
-                    b_s += Matrix3s::outer_product(Vector3(x_min + i, y_min + j, z_min + k) - pos, dw_w[3] * grid_vel);
-                    cdg_s += Matrix3s::outer_product(dw, grid_vel);
-                }
+                k = 0;
+                Vector3 *grid_velocity_ptr = &grid_velocity[x_min + i][y_min + j][z_min];
+                Vector4s dpos = Vector3(x_min + i, y_min + j, z_min) - pos;
+
+                Vector4s dw_2 = w_stages[0][i] * w_stages[1][j];
+                Vector4s dw_w = dw_2 * w_stages[2][k];
+                Vector4s grid_vel = grid_velocity_ptr[k];
+                v += dw_w[3] * grid_vel;
+                b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
+                cdg += Matrix3s::outer_product(dw_w, grid_vel);
+
+                k = 1;
+                dpos += Vector4s(0.0f, 0.0f, 1.0f, 0.0f);
+                dw_w = dw_2 * w_stages[2][k];
+                grid_vel = grid_velocity_ptr[k];
+                v += dw_w[3] * grid_vel;
+                b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
+                cdg += Matrix3s::outer_product(dw_w, grid_vel);
+
+                k = 2;
+                dpos += Vector4s(0.0f, 0.0f, 1.0f, 0.0f);
+                dw_w = dw_2 * w_stages[2][k];
+                grid_vel = grid_velocity_ptr[k];
+                v += dw_w[3] * grid_vel;
+                b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
+                cdg += Matrix3s::outer_product(dw_w, grid_vel);
+
+                k = 3;
+                dpos += Vector4s(0.0f, 0.0f, 1.0f, 0.0f);
+                dw_w = dw_2 * w_stages[2][k];
+                grid_vel = grid_velocity_ptr[k];
+                v += dw_w[3] * grid_vel;
+                b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
+                cdg += Matrix3s::outer_product(dw_w, grid_vel);
             }
         }
-        if((b_s - Matrix3s(b)).frobenius_norm() > 1e-5) {
-            P(b_s); P(b);
-            error("mismatch");
-        }
-        if((cdg_s - Matrix3s(cdg)).frobenius_norm() > 1e-5) {
-            P(cdg_s); P(cdg);
-            error("mismatch");
-        }
+        // cdg = cdg.transposed();
         if (!apic) {
-            b = Matrix(0);
+            b = Matrix3s(0);
         }
         // We should use an std::exp here, but that is too slow...
         real damping = std::max(0.0f, 1.0f - delta_t * affine_damping);
-        p.apic_b = b * damping;
-        cdg = Matrix(1) + delta_t * cdg;
+        p.apic_b = (b * damping).to_mat3();
+        cdg = Matrix3s(1.0f) + delta_t * cdg;
 #ifdef TC_MPM_WITH_FLIP
         // APIC part + FLIP part
         p.v = (1 - alpha_delta_t) * v + alpha_delta_t * (v - bv + p.v);
 #else
-        p.v = v;
+        p.v = v.to_vec3();
 #endif
-        Matrix dg = cdg * p.dg_e * p.dg_p;
+        Matrix3s dg = cdg * Matrix3s(p.dg_e) * Matrix3s(p.dg_p);
 #ifdef CV_ON
         if (abnormal(dg) || abnormal(cdg) || abnormal(p.dg_e) || abnormal(p.dg_cache)) {
             P(dg);
@@ -241,8 +251,8 @@ void MPM3D::resample() {
             error("");
         }
 #endif
-        p.dg_e = cdg * p.dg_e;
-        p.dg_cache = dg;
+        p.dg_e = (cdg * Matrix3s(p.dg_e)).to_mat3();
+        p.dg_cache = dg.to_mat3();
 #ifdef CV_ON
         if (abnormal(dg) || abnormal(cdg) || abnormal(p.dg_e) || abnormal(p.dg_cache)) {
             P(dg);
@@ -352,7 +362,19 @@ void MPM3D::calculate_force_and_rasterize(real delta_t) {
 }
 
 void MPM3D::grid_apply_boundary_conditions(const DynamicLevelSet3D &levelset, real t) {
+    Array3D<int> cache(scheduler.res, 0);
+    for (auto ind: cache.get_region()) {
+        Vector3 pos = Vector3(0.5 + ind[0], 0.5 + ind[1], 0.5 + ind[2]) * real(mpm3d_grid_block_size);
+        if (levelset.sample(pos, t) < mpm3d_grid_block_size) {
+            cache[ind] = 1; 
+        } else {
+            cache[ind] = 0;
+        }
+    }
     for (auto &ind : scheduler.get_active_grid_points()) {
+        if (cache[ind[0] / mpm3d_grid_block_size][ind[1] / mpm3d_grid_block_size][ind[2] / mpm3d_grid_block_size] == 0) {
+            continue;
+        }
         Vector3 pos = Vector3(0.5 + ind[0], 0.5 + ind[1], 0.5 + ind[2]);
         real phi = levelset.sample(pos, t);
         if (1 < phi || phi < -3) continue;

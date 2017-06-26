@@ -247,6 +247,13 @@ struct TC_ALIGNED(16) Matrix3s {
         v[2] = 0.0f;
     }
 
+    Matrix3s &operator=(const Matrix3s &m) {
+        v[0] = m.v[0];
+        v[1] = m.v[1];
+        v[2] = m.v[2];
+        return *this;
+    }
+
     Matrix3s(float diag) {
         v[0] = Vector4s(diag, 0.0f, 0.0f, 0.0f);
         v[1] = Vector4s(0.0f, diag, 0.0f, 0.0f);
@@ -312,12 +319,30 @@ struct TC_ALIGNED(16) Matrix3s {
         return Matrix3s(v[0] - o[0], v[1] - o[1], v[2] - o[2]);
     }
 
+    Matrix3 to_mat3() const {
+        return Matrix3(v[0][0], v[0][1], v[0][2],
+                       v[1][0], v[1][1], v[1][2],
+                       v[2][0], v[2][1], v[2][2]
+        );
+    }
+
     float frobenius_norm2() const {
         return v[0].length2() + v[1].length2() + v[2].length2();
     }
 
     float frobenius_norm() const {
         return std::sqrt(frobenius_norm2());
+    }
+
+    Matrix3s transposed() const {
+        Matrix3s ret;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j <= i; j++) {
+                ret[i][j] = v[j][i];
+                ret[j][i] = v[i][j];
+            }
+        }
+        return ret;
     }
 };
 
