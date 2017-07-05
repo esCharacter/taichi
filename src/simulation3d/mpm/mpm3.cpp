@@ -251,11 +251,11 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
             const real mass = p.mass;
             // We enlarge Matrix 3x3 to Matrix 4x4 for SIMD.
             // It is, however, better to use Matrix 4x3 in the future.
-            const Matrix4s apic_b_3_mass = Matrix4s(p.apic_b) * (3.0f * mass);
+            const Matrix4s apic_b_inv_d_mass = Matrix4s(p.apic_b) * ((6.0f - kernel_size) * mass);
             const Vector4s mass_v = mass * v;
-            Matrix4s apic_b_3_mass_with_mass_v = apic_b_3_mass;
-            apic_b_3_mass_with_mass_v[3] = mass_v;
-            apic_b_3_mass_with_mass_v[3][3] = mass;
+            Matrix4s apic_b_inv_d_mass_with_mass_v = apic_b_inv_d_mass;
+            apic_b_inv_d_mass_with_mass_v[3] = mass_v;
+            apic_b_inv_d_mass_with_mass_v[3][3] = mass;
 
             // apic_b_mass_with_mass_v
             // ----------------------------
@@ -266,30 +266,27 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
             // ----------------------------
 
             const Matrix4s delta_t_tmp_force = delta_t * Matrix4s(p.tmp_force);
-            int x = int(pos.x);
-            int y = int(pos.y);
-            int z = int(pos.z);
-            int x_min = x - 1;
-            int y_min = y - 1;
-            int z_min = z - 1;
+            int x_min = get_stencil_start(pos.x);
+            int y_min = get_stencil_start(pos.y);
+            int z_min = get_stencil_start(pos.z);
             for (int i = 0; i < kernel_size; i++) {
                 for (int j = 0; j < kernel_size; j++) {
                     // v_contribution = v + 3 * apic_b * d_pos;
-                    // Vector4s rast_v = mass_v + (apic_b_3_mass * d_pos);
+                    // Vector4s rast_v = mass_v + (apic_b_inv_d_mass * d_pos);
 
                     const Vector4s dw_2 = w_stages[0][i] * w_stages[1][j];
                     Vector4s *ptr = &grid_velocity_and_mass[x_min + i][y_min + j][z_min];
 
                     const Vector4s d_pos = Vector4s(x_min + i, y_min + j, z_min, 1.0) - pos;
 
-                    Vector4s base_vel_and_mass = apic_b_3_mass_with_mass_v * d_pos;
+                    Vector4s base_vel_and_mass = apic_b_inv_d_mass_with_mass_v * d_pos;
                     Vector4s dw_w = dw_2 * w_stages[2][0];
                     *ptr += dw_w[3] * base_vel_and_mass +
                             delta_t_tmp_force.multiply_vec3(dw_w);
                     ptr += 1;
 
                     if (kernel_size >= 2) {
-                        base_vel_and_mass += apic_b_3_mass_with_mass_v[2];
+                        base_vel_and_mass += apic_b_inv_d_mass_with_mass_v[2];
                         dw_w = dw_2 * w_stages[2][1];
                         *ptr += dw_w[3] * base_vel_and_mass +
                                 delta_t_tmp_force.multiply_vec3(dw_w);
@@ -297,7 +294,7 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
                     }
 
                     if (kernel_size >= 3) {
-                        base_vel_and_mass += apic_b_3_mass_with_mass_v[2];
+                        base_vel_and_mass += apic_b_inv_d_mass_with_mass_v[2];
                         dw_w = dw_2 * w_stages[2][2];
                         *ptr += dw_w[3] * base_vel_and_mass +
                                 delta_t_tmp_force.multiply_vec3(dw_w);
@@ -305,7 +302,7 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
                     }
 
                     if (kernel_size >= 4) {
-                        base_vel_and_mass += apic_b_3_mass_with_mass_v[2];
+                        base_vel_and_mass += apic_b_inv_d_mass_with_mass_v[2];
                         dw_w = dw_2 * w_stages[2][3];
                         *ptr += dw_w[3] * base_vel_and_mass +
                                 delta_t_tmp_force.multiply_vec3(dw_w);

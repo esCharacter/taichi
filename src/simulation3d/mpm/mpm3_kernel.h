@@ -74,7 +74,7 @@ int MPM<3>::get_stencil_start(real x) const {
 
 #else
 
-#error "MPM 3D kernel order not spefified. TC_MPM3D_KERNEL_ORDER should be defined as 2 or 3."
+#error "MPM 3D kernel order (TC_MPM3D_KERNEL_ORDER) should be specified as 2 or 3."
 
 #endif
 

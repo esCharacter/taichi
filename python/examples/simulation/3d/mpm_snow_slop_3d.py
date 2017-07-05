@@ -13,7 +13,7 @@ use_mpi = False
 step_number = 1000
 # step_number = 1
 # total_frames = 1
-grid_downsample = 2
+grid_downsample = 4
 output_downsample = 1
 render_epoch = 20
 
