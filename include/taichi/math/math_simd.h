@@ -2,6 +2,7 @@
     Taichi - Physically based Computer Graphics Library
 
     Copyright (c) 2017 Yuanming Hu <yuanmhu@gmail.com>
+                  2017 Yu Fang <squarefk@gmail.com>
 
     All rights reserved. Use of this source code is governed by
     the MIT license as written in the LICENSE file.
@@ -10,6 +11,7 @@
 #pragma once
 
 #include <taichi/system/benchmark.h>
+#include <taichi/math/math_util.h>
 
 TC_NAMESPACE_BEGIN
 
@@ -31,23 +33,293 @@ enum class InstructionSet {
 };
 
 template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
-struct Vector {
+struct VectorND {
     T d[DIM];
 
-    Vector(T v) {
+    VectorND() {
+        for (int i = 0; i < DIM; i++) {
+            d[i] = T(0);
+        }
+    }
+
+    VectorND(T v) {
         for (int i = 0; i < DIM; i++) {
             d[i] = v;
         }
     }
 
-    // TODO: complete this
+    T &operator[](int i) { return d[i]; }
+
+    const T &operator[](int i) const { return d[i]; }
+
+    static T dot(VectorND<DIM, T, ISA> row, VectorND<DIM, T, ISA> column) {
+        T ret = T(0);
+        for (int i = 0; i < DIM; i++)
+            ret += row[i] * column[i];
+        return ret;
+    }
+
+    VectorND &operator=(const VectorND o) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] = o[i];
+        }
+        return *this;
+    }
+
+    VectorND operator+(const VectorND &o) const {
+        VectorND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = d[i] + o[i];
+        }
+        return ret;
+    }
+
+    VectorND operator-(const VectorND &o) const {
+        VectorND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = d[i] - o[i];
+        }
+        return ret;
+    }
+
+    VectorND operator*(const VectorND &o) const {
+        VectorND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = d[i] * o[i];
+        }
+        return ret;
+    }
+
+    VectorND operator/(const VectorND &o) const {
+        VectorND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = d[i] / o[i];
+        }
+        return ret;
+    }
+
+    VectorND operator-() const {
+        VectorND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = -d[i];
+        }
+        return ret;
+    }
+
+    VectorND &operator+=(const VectorND &o) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] += o[i];
+        };
+        return *this;
+    }
+
+    VectorND &operator-=(const VectorND &o) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] -= o[i];
+        };
+        return *this;
+    }
+
+    VectorND &operator*=(const VectorND &o) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] *= o[i];
+        };
+        return *this;
+    }
+
+    VectorND &operator/=(const VectorND &o) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] /= o[i];
+        };
+        return *this;
+    }
+
+    bool operator==(const VectorND &o) const {
+        for (int i = 0; i < DIM; i++)
+            if (d[i] != o[i]) return false;
+        return true;
+    }
+
+    bool operator!=(const VectorND &o) const {
+        for (int i = 0; i < DIM; i++)
+            if (d[i] != o[i]) return true;
+        return false;
+    }
+
+    // TODO: vectorize ?
+    VectorND abs() const {
+        VectorND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = std::abs(d[i]);
+        }
+        return ret;
+    }
+
+    T max() const {
+        T ret = d[0];
+        for (int i = 1; i < DIM; i++) {
+            ret = std::max(ret, d[i]);
+        }
+        return ret;
+    }
+
+    T length2() const {
+        T ret = 0;
+        for (int i = 0; i < DIM; i++) {
+            ret += d[i] * d[i];
+        }
+        return ret;
+    }
+
+    real length() const {
+        return std::sqrt(length2());
+    }
+
+    template <typename G>
+    VectorND<DIM, G, ISA> cast() const {
+        VectorND<DIM, G, ISA> ret;
+        for (int i = 0; i < DIM; i++)
+            ret[i] = static_cast<G>(d[i]);
+        return ret;
+    }
 };
 
 template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
-struct Matrix {
-    T d[DIM][DIM];
+struct MatrixND {
 
-    // TODO: complete this
+    VectorND<DIM, T, ISA> d[DIM];
+
+    MatrixND() {
+        for (int i = 0; i < DIM; i++) {
+            d[i] = VectorND<DIM, T, ISA>();
+        }
+    }
+
+    MatrixND &operator=(const MatrixND &m) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] = m[i];
+        }
+        return *this;
+    }
+
+    MatrixND(float diag) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] = VectorND<DIM, T, ISA>();
+        }
+        for (int i = 0; i < DIM; i++)
+            d[i][i] = diag;
+    }
+
+    MatrixND(const MatrixND &o) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] = o[i];
+        }
+    }
+
+    VectorND<DIM, T, ISA> &operator[](int i) {
+        return d[i];
+    }
+
+    const VectorND<DIM, T, ISA> &operator[](int i) const {
+        return d[i];
+    }
+
+    VectorND<DIM, T, ISA> operator*(const VectorND<DIM, T, ISA> &o) const {
+        VectorND<DIM, T, ISA> ret;
+        for (int i = 0; i < DIM; i++)
+            for (int j = 0; j < DIM; j++) {
+                ret[i] += d[j][i] * o[j];
+            }
+        return ret;
+    }
+
+    MatrixND operator*(const MatrixND &o) const {
+        MatrixND ret;
+        for (int i = 0; i < DIM; i++)
+            for (int j = 0; j < DIM; j++)
+                for (int k = 0; k < DIM; k++) {
+                    ret[j][i] += d[k][i] * o[j][k];
+                }
+        return ret;
+    }
+
+    static MatrixND outer_product(VectorND<DIM, T, ISA> row, VectorND<DIM, T, ISA> column) {
+        MatrixND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = column * row[i];
+        }
+        return ret;
+    }
+
+    MatrixND operator+(const MatrixND &o) const {
+        MatrixND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = d[i] + o[i];
+        }
+        return ret;
+    }
+
+    MatrixND &operator+=(const MatrixND &o) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] += o[i];
+        }
+        return *this;
+    }
+
+    MatrixND &operator-=(const MatrixND &o) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] -= o[i];
+        }
+        return *this;
+    }
+
+    MatrixND operator-(const MatrixND &o) const {
+        MatrixND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = -d[i];
+        }
+        return ret;
+    }
+
+    bool operator==(const MatrixND &o) const {
+        for (int i = 0; i < DIM; i++)
+            for (int j = 0; j < DIM; j++)
+                if (d[i][j] != o[i][j]) return false;
+        return true;
+    }
+
+    bool operator!=(const MatrixND &o) const {
+        for (int i = 0; i < DIM; i++)
+            for (int j = 0; j < DIM; j++)
+                if (d[i][j] != o[i][j]) return true;
+        return false;
+    }
+
+    T frobenius_norm2() const {
+        return d[0].length2() + d[1].length2() + d[2].length2();
+    }
+
+    real frobenius_norm() const {
+        return std::sqrt(frobenius_norm2());
+    }
+
+    MatrixND transposed() const {
+        MatrixND ret;
+        for (int i = 0; i < DIM; i++)
+            for (int j = 0; j < DIM; j++) {
+                ret[i][j] = d[j][i];
+            }
+        return ret;
+    }
+
+    template <typename G>
+    MatrixND<DIM, G, ISA> cast() const {
+        MatrixND<DIM, G, ISA> ret;
+        for (int i = 0; i < DIM; i++)
+            for (int j = 0; j < DIM; j++)
+                ret[i][j] = static_cast<G>(d[i][j]);
+        return ret;
+    }
 };
 
 // SIMD Vector4
@@ -81,7 +353,7 @@ struct TC_ALIGNED(16) Vector4s {
 
     operator __m128d() const { return _mm_castps_pd(v); }
 
-    Vector4s &operator=(const Vector4s o) {
+    Vector4s &operator=(const Vector4s &o) {
         v = o.v;
         return *this;
     }
@@ -260,7 +532,7 @@ inline void print(const Matrix4s &v) {
 // SIMD Matrix3
 struct TC_ALIGNED(16) Matrix3s {
     union {
-        // Four columns, instead of rows!
+        // Three columns, instead of rows!
         Vector4s v[3];
     };
 
@@ -390,5 +662,74 @@ inline void print(const Matrix3s &v) {
         printf("\n");
     }
 }
+
+template <int dim, typename T>
+inline void test_dim_type() {
+    T a[dim][dim], b[dim][dim], c[dim][dim];
+    T x[dim], y[dim], z[dim];
+
+    MatrixND<dim, T> m_a, m_b, m_c;
+    VectorND<dim, T> v_x, v_y, v_z;
+
+    for (int i = 0; i < dim; i++)
+        for (int j = 0; j < dim; j++) {
+            m_a[i][j] = a[i][j] = rand();
+            m_b[i][j] = b[i][j] = rand();
+            m_c[i][j] = c[i][j] = rand();
+            v_x[i] = x[i] = rand();
+            v_y[i] = y[i] = rand();
+            v_z[i] = z[i] = rand();
+        }
+
+    auto result_test = [&]() {
+        bool same = true;
+        for (int i = 0; i < dim; i++)
+            for (int j = 0; j < dim; j++) {
+                if (std::abs(a[i][j] - m_a[i][j]) > T(1e-6f)) same = false;
+                if (std::abs(b[i][j] - m_b[i][j]) > T(1e-6f)) same = false;
+                if (std::abs(c[i][j] - m_c[i][j]) > T(1e-6f)) same = false;
+            }
+        for (int i = 0; i < dim; i++) {
+            if (std::abs(x[i] - v_x[i]) > T(1e-6f)) same = false;
+            if (std::abs(y[i] - v_y[i]) > T(1e-6f)) same = false;
+            if (std::abs(z[i] - v_z[i]) > T(1e-6f)) same = false;
+        }
+        assert(same);
+    };
+
+    m_c += m_a * m_b;
+    for (int i = 0; i < dim; i++)
+        for (int j = 0; j < dim; j++)
+            for (int k = 0; k < dim; k++)
+                c[j][i] += a[k][i] * b[j][k];
+    result_test();
+
+    v_z = v_x / v_y - v_z;
+    for (int i = 0; i < dim; i++)
+        z[i] = x[i] / y[i] - z[i];
+    result_test();
+}
+
+inline void test_vector_and_matrix() {
+    test_dim_type<2, float>();
+    test_dim_type<3, float>();
+    glm::vec2 a(1,2);
+    glm::vec2 b(3,4);
+    glm::mat2 c = glm::outerProduct(a, b);
+    VectorND<2, float> aa;
+    aa[0] = 1;
+    aa[1] = 2;
+    VectorND<2, float> bb;
+    bb[0] = 3;
+    bb[1] = 4;
+    MatrixND<2, float> cc = MatrixND<2,float>::outer_product(aa, bb);
+    for (int i = 0; i < 2; i++)
+        for (int j = 0; j < 2; j++) {
+            printf("%.4f %.4f\n", c[i][j], cc[i][j]);
+        }
+    printf("Vector and matrix test passes.\n");
+}
+
+
 
 TC_NAMESPACE_END

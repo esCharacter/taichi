@@ -2,6 +2,9 @@ import time
 import taichi as tc
 from taichi.gui.image_viewer import show_image
 
+tc.core.test_vector_and_matrix()
+exit()
+
 tc.core.print_all_units()
 tc.core.test()
 
