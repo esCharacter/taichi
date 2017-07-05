@@ -13,6 +13,7 @@
 #include <taichi/image/tone_mapper.h>
 #include <taichi/common/asset_manager.h>
 #include <taichi/math/sdf.h>
+#include <taichi/math/math_simd.h>
 #include <taichi/system/unit_dll.h>
 #include <taichi/system/benchmark.h>
 #include <taichi/system/profiler.h>
@@ -80,6 +81,7 @@ void export_misc(py::module &m) {
 
     m.def("print_all_units", print_all_units);
     m.def("test", test);
+    m.def("test_vector_and_matrix", test_vector_and_matrix);
     m.def("test_raise_error", test_raise_error);
     m.def("test_volumetric_io", test_volumetric_io);
     m.def("config_from_dict", config_from_py_dict);
