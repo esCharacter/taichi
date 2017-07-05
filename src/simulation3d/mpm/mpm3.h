@@ -32,13 +32,14 @@ TC_NAMESPACE_BEGIN
 // Supports FLIP?
 // #define TC_MPM_WITH_FLIP
 
-class MPM3D : public Simulation3D {
+template <int DIM>
+class MPM : public Simulation3D {
 protected:
     typedef Vector3 Vector;
     typedef Matrix3 Matrix;
     typedef Region3D Region;
-public:
-    static const int D = 3;
+    static const int D = DIM;
+    static const int kernel_size;
 
 public:
     std::vector<MPM3Particle *> particles; // for (copy) efficiency, we do not use smart pointers here
@@ -69,22 +70,6 @@ public:
     int64 old_t_int;
     MPM3Scheduler scheduler;
     bool mpi_initialized;
-
-    Region get_bounded_rasterization_region(Vector p) {
-        assert_info(is_normal(p.x) && is_normal(p.y) && is_normal(p.z),
-                    std::string("Abnormal p: ") + std::to_string(p.x)
-                    + ", " + std::to_string(p.y) + ", " + std::to_string(p.z));
-        int x = int(p.x);
-        int y = int(p.y);
-        int z = int(p.z);
-        int x_min = std::max(0, std::min(res[0], x - 1));
-        int x_max = std::max(0, std::min(res[0], x + 3));
-        int y_min = std::max(0, std::min(res[1], y - 1));
-        int y_max = std::max(0, std::min(res[1], y + 3));
-        int z_min = std::max(0, std::min(res[2], z - 1));
-        int z_max = std::max(0, std::min(res[2], z + 3));
-        return Region(x_min, x_max, y_min, y_max, z_min, z_max);
-    }
 
     bool test() const override;
 
@@ -129,7 +114,7 @@ public:
 
 public:
 
-    MPM3D() {}
+    MPM() {}
 
     virtual void initialize(const Config &config) override;
 
@@ -162,7 +147,9 @@ public:
 
     void clear_boundary_particles();
 
-    ~MPM3D();
+    ~MPM();
+
+    int get_stencil_start(real x) const;
 };
 
 TC_NAMESPACE_END

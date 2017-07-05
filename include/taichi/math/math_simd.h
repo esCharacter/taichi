@@ -42,7 +42,7 @@ struct TC_ALIGNED(16) Vector4s {
 
     Vector4s(const Vector3 &vec, float w = 0.0f) : Vector4s(vec.x, vec.y, vec.z, w) {}
 
-    Vector4s(real x, real y, real z, real w) : v(_mm_set_ps(w, z, y, x)) {}
+    Vector4s(real x, real y, real z, real w = 0.0f) : v(_mm_set_ps(w, z, y, x)) {}
 
     Vector4s(real x) : v(_mm_set1_ps(x)) {}
 

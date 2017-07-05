@@ -23,6 +23,7 @@
 #include <taichi/math/math_simd.h>
 #include <taichi/common/asset_manager.h>
 #include <taichi/system/profiler.h>
+#include "mpm3_kernel.h"
 
 TC_NAMESPACE_BEGIN
 
@@ -35,49 +36,8 @@ TC_NAMESPACE_BEGIN
 #define UNLOCK_GRID
 #endif
 
-
-#define PREPROCESS_KERNELS\
-    Vector4s w_cache[3]; \
-    Vector4s dw_cache[3];\
-    Vector p_fract = fract(p.pos); \
-    for (int k = 0; k < 3; k++) { \
-        const Vector4s t = Vector4s(p_fract[k]) - Vector4s(-1, 0, 1, 2); \
-        auto tt = t * t; \
-        auto ttt = tt * t; \
-        w_cache[k] = Vector4s(-1 / 6.0f, 0.5f, -0.5f, 1 / 6.0f) * ttt + \
-        Vector4s(1, -1, -1, 1) * tt + \
-        Vector4s(-2, 0, 0, 2) * t + \
-        Vector4s(4 / 3.0f, 2 / 3.0f, 2 / 3.0f, 4 / 3.0f); \
-        dw_cache[k] = Vector4s(-0.5f, 1.5f, -1.5f, 0.5f) * tt + \
-        Vector4s(2, -2, -2, 2) * t + \
-        Vector4s(-2, 0, 0, 2); \
-    } \
-    const int base_i = int(floor(p.pos[0])) - 1; \
-    const int base_j = int(floor(p.pos[1])) - 1; \
-    const int base_k = int(floor(p.pos[2])) - 1; \
-    Vector4s w_stages[3][4]; \
-    for (int k = 0; k < 4; k++) { \
-        w_stages[0][k] = Vector4s(dw_cache[0][k], w_cache[0][k], w_cache[0][k], w_cache[0][k]); \
-        w_stages[1][k] = Vector4s(w_cache[1][k], dw_cache[1][k], w_cache[1][k], w_cache[1][k]); \
-        w_stages[2][k] = Vector4s(w_cache[2][k], w_cache[2][k], dw_cache[2][k], w_cache[2][k]); \
-    }
-
-#define CALCULATE_COMBINED_WEIGHT_AND_GRADIENT \
-    Vector4s dw_w = w_stages[0][ind.i - base_i] * w_stages[1][ind.j - base_j] * w_stages[2][ind.k - base_k];
-#define CALCULATE_COMBINED_WEIGHT_AND_GRADIENT_FOR \
-    Vector4s dw_w = w_stages[0][i] * w_stages[1][j] * w_stages[2][k];
-
-#define CALCULATE_WEIGHT \
-    const real weight = w_cache[0][ind.i - base_i] * w_cache[1][ind.j - base_j] * w_cache[2][ind.k - base_k];
-
-#define CALCULATE_GRADIENT \
-    const Vector dw( \
-            dw_cache[0][ind.i - base_i] * w_cache[1][ind.j - base_j] * w_cache[2][ind.k - base_k], \
-            w_cache[0][ind.i - base_i] * dw_cache[1][ind.j - base_j] * w_cache[2][ind.k - base_k], \
-            w_cache[0][ind.i - base_i] * w_cache[1][ind.j - base_j] * dw_cache[2][ind.k - base_k] \
-    );
-
-void MPM3D::initialize(const Config &config) {
+template <int DIM>
+void MPM<DIM>::initialize(const Config &config) {
     Simulation3D::initialize(config);
     res = config.get_vec3i("resolution");
     gravity = config.get_vec3("gravity");
@@ -115,7 +75,8 @@ void MPM3D::initialize(const Config &config) {
     scheduler.initialize(res, base_delta_t, cfl, strength_dt_mul, &levelset, mpi_world_rank);
 }
 
-void MPM3D::add_particles(const Config &config) {
+template <int DIM>
+void MPM<DIM>::add_particles(const Config &config) {
     std::shared_ptr<Texture> density_texture = AssetManager::get_asset<Texture>(config.get_int("density_tex"));
     for (int i = 0; i < res[0]; i++) {
         for (int j = 0; j < res[1]; j++) {
@@ -145,7 +106,8 @@ void MPM3D::add_particles(const Config &config) {
     P(particles.size());
 }
 
-std::vector<RenderParticle> MPM3D::get_render_particles() const {
+template <int DIM>
+std::vector<RenderParticle> MPM<DIM>::get_render_particles() const {
     using Particle = RenderParticle;
     std::vector<Particle> render_particles;
     render_particles.reserve(particles.size());
@@ -165,7 +127,8 @@ std::vector<RenderParticle> MPM3D::get_render_particles() const {
     return render_particles;
 }
 
-void MPM3D::resample() {
+template <int DIM>
+void MPM<DIM>::resample() {
     real alpha_delta_t = 1;
     if (apic)
         alpha_delta_t = 0;
@@ -175,16 +138,13 @@ void MPM3D::resample() {
         Matrix3s b(0.0f);
         Matrix3s cdg(0.0f);
         Vector3 pos = p.pos;
-        PREPROCESS_KERNELS
-        int x = int(pos.x);
-        int y = int(pos.y);
-        int z = int(pos.z);
-        int x_min = x - 1;
-        int y_min = y - 1;
-        int z_min = z - 1;
+        TC_MPM3D_PREPROCESS_KERNELS
+        int x_min = get_stencil_start(pos.x);
+        int y_min = get_stencil_start(pos.y);
+        int z_min = get_stencil_start(pos.z);
         // TODO: FLIP velocity sample is temporarily disabled
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 4; j++) {
+        for (int i = 0; i < kernel_size; i++) {
+            for (int j = 0; j < kernel_size; j++) {
                 // Note: forth coordinate of the second parameter to Matrix3s::outer_product
                 // is ignored.
                 //
@@ -201,29 +161,35 @@ void MPM3D::resample() {
                 b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
                 cdg += Matrix3s::outer_product(dw_w, grid_vel);
 
-                k = 1;
-                dpos += Vector4s(0.0f, 0.0f, 1.0f, 0.0f);
-                dw_w = dw_2 * w_stages[2][k];
-                grid_vel = grid_velocity_ptr[k];
-                v += dw_w[3] * grid_vel;
-                b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
-                cdg += Matrix3s::outer_product(dw_w, grid_vel);
+                if (kernel_size >= 2) {
+                    k = 1;
+                    dpos += Vector4s(0.0f, 0.0f, 1.0f, 0.0f);
+                    dw_w = dw_2 * w_stages[2][k];
+                    grid_vel = grid_velocity_ptr[k];
+                    v += dw_w[3] * grid_vel;
+                    b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
+                    cdg += Matrix3s::outer_product(dw_w, grid_vel);
+                }
 
-                k = 2;
-                dpos += Vector4s(0.0f, 0.0f, 1.0f, 0.0f);
-                dw_w = dw_2 * w_stages[2][k];
-                grid_vel = grid_velocity_ptr[k];
-                v += dw_w[3] * grid_vel;
-                b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
-                cdg += Matrix3s::outer_product(dw_w, grid_vel);
+                if (kernel_size >= 3) {
+                    k = 2;
+                    dpos += Vector4s(0.0f, 0.0f, 1.0f, 0.0f);
+                    dw_w = dw_2 * w_stages[2][k];
+                    grid_vel = grid_velocity_ptr[k];
+                    v += dw_w[3] * grid_vel;
+                    b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
+                    cdg += Matrix3s::outer_product(dw_w, grid_vel);
+                }
 
-                k = 3;
-                dpos += Vector4s(0.0f, 0.0f, 1.0f, 0.0f);
-                dw_w = dw_2 * w_stages[2][k];
-                grid_vel = grid_velocity_ptr[k];
-                v += dw_w[3] * grid_vel;
-                b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
-                cdg += Matrix3s::outer_product(dw_w, grid_vel);
+                if (kernel_size >= 4) {
+                    k = 3;
+                    dpos += Vector4s(0.0f, 0.0f, 1.0f, 0.0f);
+                    dw_w = dw_2 * w_stages[2][k];
+                    grid_vel = grid_velocity_ptr[k];
+                    v += dw_w[3] * grid_vel;
+                    b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
+                    cdg += Matrix3s::outer_product(dw_w, grid_vel);
+                }
             }
         }
         // cdg = cdg.transposed();
@@ -266,7 +232,8 @@ void MPM3D::resample() {
     });
 }
 
-void MPM3D::calculate_force_and_rasterize(real delta_t) {
+template <int DIM>
+void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
     {
         Profiler _("calculate force");
         parallel_for_each_active_particle([&](MPM3Particle &p) {
@@ -279,7 +246,7 @@ void MPM3D::calculate_force_and_rasterize(real delta_t) {
     {
         Profiler _("rasterize velocity, mass, and force");
         parallel_for_each_active_particle([&](MPM3Particle &p) {
-            PREPROCESS_KERNELS
+            TC_MPM3D_PREPROCESS_KERNELS
             const Vector pos = p.pos, v = p.v;
             const real mass = p.mass;
             // We enlarge Matrix 3x3 to Matrix 4x4 for SIMD.
@@ -305,8 +272,8 @@ void MPM3D::calculate_force_and_rasterize(real delta_t) {
             int x_min = x - 1;
             int y_min = y - 1;
             int z_min = z - 1;
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4; j++) {
+            for (int i = 0; i < kernel_size; i++) {
+                for (int j = 0; j < kernel_size; j++) {
                     // v_contribution = v + 3 * apic_b * d_pos;
                     // Vector4s rast_v = mass_v + (apic_b_3_mass * d_pos);
 
@@ -321,22 +288,28 @@ void MPM3D::calculate_force_and_rasterize(real delta_t) {
                             delta_t_tmp_force.multiply_vec3(dw_w);
                     ptr += 1;
 
-                    base_vel_and_mass += apic_b_3_mass_with_mass_v[2];
-                    dw_w = dw_2 * w_stages[2][1];
-                    *ptr += dw_w[3] * base_vel_and_mass +
-                            delta_t_tmp_force.multiply_vec3(dw_w);
-                    ptr += 1;
+                    if (kernel_size >= 2) {
+                        base_vel_and_mass += apic_b_3_mass_with_mass_v[2];
+                        dw_w = dw_2 * w_stages[2][1];
+                        *ptr += dw_w[3] * base_vel_and_mass +
+                                delta_t_tmp_force.multiply_vec3(dw_w);
+                        ptr += 1;
+                    }
 
-                    base_vel_and_mass += apic_b_3_mass_with_mass_v[2];
-                    dw_w = dw_2 * w_stages[2][2];
-                    *ptr += dw_w[3] * base_vel_and_mass +
-                            delta_t_tmp_force.multiply_vec3(dw_w);
-                    ptr += 1;
+                    if (kernel_size >= 3) {
+                        base_vel_and_mass += apic_b_3_mass_with_mass_v[2];
+                        dw_w = dw_2 * w_stages[2][2];
+                        *ptr += dw_w[3] * base_vel_and_mass +
+                                delta_t_tmp_force.multiply_vec3(dw_w);
+                        ptr += 1;
+                    }
 
-                    base_vel_and_mass += apic_b_3_mass_with_mass_v[2];
-                    dw_w = dw_2 * w_stages[2][3];
-                    *ptr += dw_w[3] * base_vel_and_mass +
-                            delta_t_tmp_force.multiply_vec3(dw_w);
+                    if (kernel_size >= 4) {
+                        base_vel_and_mass += apic_b_3_mass_with_mass_v[2];
+                        dw_w = dw_2 * w_stages[2][3];
+                        *ptr += dw_w[3] * base_vel_and_mass +
+                                delta_t_tmp_force.multiply_vec3(dw_w);
+                    }
                 }
             }
         });
@@ -361,18 +334,20 @@ void MPM3D::calculate_force_and_rasterize(real delta_t) {
 #endif
 }
 
-void MPM3D::grid_apply_boundary_conditions(const DynamicLevelSet3D &levelset, real t) {
+template <int DIM>
+void MPM<DIM>::grid_apply_boundary_conditions(const DynamicLevelSet3D &levelset, real t) {
     Array3D<int> cache(scheduler.res, 0);
     for (auto ind: cache.get_region()) {
         Vector3 pos = Vector3(0.5 + ind[0], 0.5 + ind[1], 0.5 + ind[2]) * real(mpm3d_grid_block_size);
         if (levelset.sample(pos, t) < mpm3d_grid_block_size) {
-            cache[ind] = 1; 
+            cache[ind] = 1;
         } else {
             cache[ind] = 0;
         }
     }
     for (auto &ind : scheduler.get_active_grid_points()) {
-        if (cache[ind[0] / mpm3d_grid_block_size][ind[1] / mpm3d_grid_block_size][ind[2] / mpm3d_grid_block_size] == 0) {
+        if (cache[ind[0] / mpm3d_grid_block_size][ind[1] / mpm3d_grid_block_size][ind[2] / mpm3d_grid_block_size] ==
+            0) {
             continue;
         }
         Vector3 pos = Vector3(0.5 + ind[0], 0.5 + ind[1], 0.5 + ind[2]);
@@ -402,7 +377,8 @@ void MPM3D::grid_apply_boundary_conditions(const DynamicLevelSet3D &levelset, re
     }
 }
 
-void MPM3D::particle_collision_resolution(real t) {
+template <int DIM>
+void MPM<DIM>::particle_collision_resolution(real t) {
     parallel_for_each_active_particle([&](MPM3Particle &p) {
         if (p.state == MPM3Particle::UPDATING) {
             p.resolve_collision(levelset, t);
@@ -410,7 +386,8 @@ void MPM3D::particle_collision_resolution(real t) {
     });
 }
 
-void MPM3D::substep() {
+template <int DIM>
+void MPM<DIM>::substep() {
     Profiler _p("mpm_substep");
     synchronize_particles();
     if (!particles.empty()) {
@@ -505,7 +482,8 @@ void MPM3D::substep() {
 #define TC_MPM_TAG_PARTICLE_COUNT 2
 #define TC_MPM_TAG_PARTICLES 3
 
-void MPM3D::synchronize_particles() {
+template <int DIM>
+void MPM<DIM>::synchronize_particles() {
     if (!use_mpi) {
         // No need for this
         return;
@@ -665,7 +643,8 @@ void MPM3D::synchronize_particles() {
 #endif
 }
 
-void MPM3D::clear_particles_outside() {
+template <int DIM>
+void MPM<DIM>::clear_particles_outside() {
     std::vector<MPM3Particle *> new_active_particles;
     for (auto p: scheduler.get_active_particles()) {
         if (scheduler.belongs_to(p) == mpi_world_rank) {
@@ -677,13 +656,15 @@ void MPM3D::clear_particles_outside() {
     scheduler.get_active_particles() = new_active_particles;
 }
 
-void MPM3D::finalize() {
+template <int DIM>
+void MPM<DIM>::finalize() {
 #ifdef TC_USE_MPI
     MPI_Finalize();
 #endif
 }
 
-bool MPM3D::test() const {
+template <int DIM>
+bool MPM<DIM>::test() const {
     for (int i = 0; i < 100000; i++) {
         Matrix3 m(1.000000238418579101562500000000, -0.000000000000000000000000000000,
                   -0.000000000000000000000220735070, 0.000000000000000000000000000000, 1.000000238418579101562500000000,
@@ -701,7 +682,8 @@ bool MPM3D::test() const {
     return false;
 }
 
-void MPM3D::clear_boundary_particles() {
+template <int DIM>
+void MPM<DIM>::clear_boundary_particles() {
     std::vector<MPM3Particle *> particles;
     real bound = 3.0f;
     int deleted = 0;
@@ -721,11 +703,14 @@ void MPM3D::clear_boundary_particles() {
     scheduler.active_particles = particles;
 }
 
-MPM3D::~MPM3D() {
+template <int DIM>
+MPM<DIM>::~MPM() {
     for (auto &p : particles) {
         delete p;
     }
 }
+
+typedef MPM<3> MPM3D;
 
 TC_IMPLEMENTATION(Simulation3D, MPM3D, "mpm");
 
