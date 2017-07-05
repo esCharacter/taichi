@@ -16,18 +16,21 @@
 #include <taichi/math/array_3d.h>
 #include <taichi/math/levelset_3d.h>
 #include <taichi/math/dynamic_levelset_3d.h>
+#include "mpm_utils.h"
 
 #include "mpm_particle.h"
 
 TC_NAMESPACE_BEGIN
 
-const int mpm3d_grid_block_size = 8;
-
-template<int DIM>
+template <int DIM>
 class MPMScheduler {
 public:
-    template <typename T> using Array = Array3D<T>;
+
     using Particle = MPMParticle<DIM>;
+
+    template <typename T>
+    using Array = ArrayND<DIM, T>;
+
     Array<int64> max_dt_int_strength;
     Array<int64> max_dt_int_cfl;
     Array<int64> max_dt_int;
@@ -44,14 +47,18 @@ public:
     DynamicLevelSet3D *levelset;
     real base_delta_t;
     real cfl, strength_dt_mul;
+    int grid_block_size;
     int node_id;
 
     void initialize(const Vector3i &sim_res, real base_delta_t, real cfl, real strength_dt_mul,
-                    DynamicLevelSet3D *levelset, int node_id) {
+                    DynamicLevelSet3D *levelset, int node_id, int grid_block_size) {
+
+        this->grid_block_size = grid_block_size;
+
         this->sim_res = sim_res;
-        res.x = (sim_res.x + mpm3d_grid_block_size - 1) / mpm3d_grid_block_size;
-        res.y = (sim_res.y + mpm3d_grid_block_size - 1) / mpm3d_grid_block_size;
-        res.z = (sim_res.z + mpm3d_grid_block_size - 1) / mpm3d_grid_block_size;
+        res.x = (sim_res.x + grid_block_size - 1) / grid_block_size;
+        res.y = (sim_res.y + grid_block_size - 1) / grid_block_size;
+        res.z = (sim_res.z + grid_block_size - 1) / grid_block_size;
 
         this->base_delta_t = base_delta_t;
         this->levelset = levelset;
@@ -138,16 +145,16 @@ public:
     void enforce_smoothness(int64 t_int_increment);
 
     Vector3i get_rough_pos(const MPMParticle<DIM> *p) const {
-        int x = int(p->pos.x / mpm3d_grid_block_size);
-        int y = int(p->pos.y / mpm3d_grid_block_size);
-        int z = int(p->pos.z / mpm3d_grid_block_size);
+        int x = int(p->pos.x / grid_block_size);
+        int y = int(p->pos.y / grid_block_size);
+        int z = int(p->pos.z / grid_block_size);
         return Vector3i(x, y, z);
     }
 
     Vector3i get_rough_pos(const Index3D &pos) const {
-        int x = pos.i / mpm3d_grid_block_size;
-        int y = pos.j / mpm3d_grid_block_size;
-        int z = pos.k / mpm3d_grid_block_size;
+        int x = pos.i / grid_block_size;
+        int y = pos.j / grid_block_size;
+        int z = pos.k / grid_block_size;
         return Vector3i(x, y, z);
     }
 

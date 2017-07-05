@@ -17,25 +17,16 @@ void LevelSet3D::add_sphere(Vector3 center, real radius, bool inside_out) {
     for (auto &ind : get_region()) {
         Vector3 sample = ind.get_pos();
         real dist = (inside_out ? -1 : 1) * (length(center - sample) - radius);
-        set(ind, std::min(Array3D::get(ind), dist));
+        set(ind, std::min(Array3D<real>::get(ind), dist));
     }
 }
 
 void LevelSet3D::add_plane(real a, real b, real c, real d) {
-//    auto intersect = [&](real a, real b) {
-//        real r = 2;
-//        Vector2 u(std::max(r + a, 0.f), std::max(r + b, 0.f));
-//        return std::min(-r, std::max(a, b)) + length(u);
-//    };
     real coeff = 1.0f / sqrt(a * a + b * b + c * c);
     for (auto &ind : get_region()) {
         Vector3 sample = ind.get_pos();
         real dist = (glm::dot(sample, Vector3(a, b, c)) + d) * coeff;
-//        if (Array3D::get(ind) == INF)
-//            set(ind, dist);
-//        else
-//          set(ind, intersect(Array3D::get(ind), dist));
-        set(ind, std::min(Array3D::get(ind), dist));
+        set(ind, std::min(Array3D<real>::get(ind), dist));
     }
 }
 
@@ -65,7 +56,7 @@ void LevelSet3D::add_cuboid(Vector3 lower_boundry, Vector3 upper_boundry, bool i
 
 void LevelSet3D::global_increase(real delta) {
     for (auto &ind : get_region()) {
-        set(ind, Array3D::get(ind) + delta);
+        set(ind, Array3D<real>::get(ind) + delta);
     }
 }
 
@@ -85,20 +76,20 @@ Vector3 LevelSet3D::get_gradient(const Vector3 &pos) const {
     const real y_r = y - y_i;
     const real z_r = z - z_i;
     const real gx = lerp(y_r,
-                         lerp(z_r, Array3D::get(x_i + 1, y_i, z_i) - Array3D::get(x_i, y_i, z_i),
-                              Array3D::get(x_i + 1, y_i, z_i + 1) - Array3D::get(x_i, y_i, z_i + 1)),
-                         lerp(z_r, Array3D::get(x_i + 1, y_i + 1, z_i) - Array3D::get(x_i, y_i + 1, z_i),
-                              Array3D::get(x_i + 1, y_i + 1, z_i + 1) - Array3D::get(x_i, y_i + 1, z_i + 1)));
+                         lerp(z_r, Array3D<real>::get(x_i + 1, y_i, z_i) - Array3D<real>::get(x_i, y_i, z_i),
+                              Array3D<real>::get(x_i + 1, y_i, z_i + 1) - Array3D<real>::get(x_i, y_i, z_i + 1)),
+                         lerp(z_r, Array3D<real>::get(x_i + 1, y_i + 1, z_i) - Array3D<real>::get(x_i, y_i + 1, z_i),
+                              Array3D<real>::get(x_i + 1, y_i + 1, z_i + 1) - Array3D<real>::get(x_i, y_i + 1, z_i + 1)));
     const real gy = lerp(z_r,
-                         lerp(x_r, Array3D::get(x_i, y_i + 1, z_i) - Array3D::get(x_i, y_i, z_i),
-                              Array3D::get(x_i + 1, y_i + 1, z_i) - Array3D::get(x_i + 1, y_i, z_i)),
-                         lerp(x_r, Array3D::get(x_i, y_i + 1, z_i + 1) - Array3D::get(x_i, y_i, z_i + 1),
-                              Array3D::get(x_i + 1, y_i + 1, z_i + 1) - Array3D::get(x_i + 1, y_i, z_i + 1)));
+                         lerp(x_r, Array3D<real>::get(x_i, y_i + 1, z_i) - Array3D<real>::get(x_i, y_i, z_i),
+                              Array3D<real>::get(x_i + 1, y_i + 1, z_i) - Array3D<real>::get(x_i + 1, y_i, z_i)),
+                         lerp(x_r, Array3D<real>::get(x_i, y_i + 1, z_i + 1) - Array3D<real>::get(x_i, y_i, z_i + 1),
+                              Array3D<real>::get(x_i + 1, y_i + 1, z_i + 1) - Array3D<real>::get(x_i + 1, y_i, z_i + 1)));
     const real gz = lerp(x_r,
-                         lerp(y_r, Array3D::get(x_i, y_i, z_i + 1) - Array3D::get(x_i, y_i, z_i),
-                              Array3D::get(x_i, y_i + 1, z_i + 1) - Array3D::get(x_i, y_i + 1, z_i)),
-                         lerp(y_r, Array3D::get(x_i + 1, y_i, z_i + 1) - Array3D::get(x_i + 1, y_i, z_i),
-                              Array3D::get(x_i + 1, y_i + 1, z_i + 1) - Array3D::get(x_i + 1, y_i + 1, z_i)));
+                         lerp(y_r, Array3D<real>::get(x_i, y_i, z_i + 1) - Array3D<real>::get(x_i, y_i, z_i),
+                              Array3D<real>::get(x_i, y_i + 1, z_i + 1) - Array3D<real>::get(x_i, y_i + 1, z_i)),
+                         lerp(y_r, Array3D<real>::get(x_i + 1, y_i, z_i + 1) - Array3D<real>::get(x_i + 1, y_i, z_i),
+                              Array3D<real>::get(x_i + 1, y_i + 1, z_i + 1) - Array3D<real>::get(x_i + 1, y_i + 1, z_i)));
     return Vector3(gx, gy, gz);
 }
 
@@ -127,11 +118,11 @@ real LevelSet3D::get(const Vector3 &pos) const {
     const real z_r = z - z_i;
     return lerp(x_r,
                 lerp(y_r,
-                     lerp(z_r, Array3D::get(x_i, y_i, z_i), Array3D::get(x_i, y_i, z_i + 1)),
-                     lerp(z_r, Array3D::get(x_i, y_i + 1, z_i), Array3D::get(x_i, y_i + 1, z_i + 1))),
+                     lerp(z_r, Array3D<real>::get(x_i, y_i, z_i), Array3D<real>::get(x_i, y_i, z_i + 1)),
+                     lerp(z_r, Array3D<real>::get(x_i, y_i + 1, z_i), Array3D<real>::get(x_i, y_i + 1, z_i + 1))),
                 lerp(y_r,
-                     lerp(z_r, Array3D::get(x_i + 1, y_i, z_i), Array3D::get(x_i + 1, y_i, z_i + 1)),
-                     lerp(z_r, Array3D::get(x_i + 1, y_i + 1, z_i), Array3D::get(x_i + 1, y_i + 1, z_i + 1))));
+                     lerp(z_r, Array3D<real>::get(x_i + 1, y_i, z_i), Array3D<real>::get(x_i + 1, y_i, z_i + 1)),
+                     lerp(z_r, Array3D<real>::get(x_i + 1, y_i + 1, z_i), Array3D<real>::get(x_i + 1, y_i + 1, z_i + 1))));
 }
 
 

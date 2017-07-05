@@ -12,9 +12,7 @@
 
 TC_NAMESPACE_BEGIN
 
-template <typename T> using Array = Array3D<T>;
-
-template<int DIM>
+template <int DIM>
 void MPMScheduler<DIM>::expand(bool expand_vel, bool expand_state) {
     Array<int> new_states;
     Array<int> old_states;
@@ -64,7 +62,7 @@ void MPMScheduler<DIM>::expand(bool expand_vel, bool expand_state) {
     } // 1: buffer, 2: updating
 }
 
-template<int DIM>
+template <int DIM>
 void MPMScheduler<DIM>::update() {
     // Use <= here since grid_res = sim_res + 1
     active_particles.clear();
@@ -72,7 +70,7 @@ void MPMScheduler<DIM>::update() {
     for (int i = 0; i <= sim_res[0]; i++) {
         for (int j = 0; j <= sim_res[1]; j++) {
             for (int k = 0; k <= sim_res[2]; k++) {
-                if (states[i / mpm3d_grid_block_size][j / mpm3d_grid_block_size][k / mpm3d_grid_block_size] != 0) {
+                if (states[i / grid_block_size][j / grid_block_size][k / grid_block_size] != 0) {
                     active_grid_points.push_back(Vector3i(i, j, k));
                 }
             }
@@ -100,7 +98,7 @@ void MPMScheduler<DIM>::update() {
     */
 }
 
-template<int DIM>
+template <int DIM>
 int64 MPMScheduler<DIM>::update_max_dt_int(int64 t_int) {
     int64 ret = 1LL << 60;
     for (auto &ind : max_dt_int.get_region()) {
@@ -117,7 +115,7 @@ int64 MPMScheduler<DIM>::update_max_dt_int(int64 t_int) {
     return ret;
 }
 
-template<int DIM>
+template <int DIM>
 void MPMScheduler<DIM>::update_particle_groups() {
     // Remove all updating particles, and then re-insert them
     for (auto &ind : states.get_region()) {
@@ -132,11 +130,11 @@ void MPMScheduler<DIM>::update_particle_groups() {
     }
 }
 
-template<int DIM>
+template <int DIM>
 void MPMScheduler<DIM>::insert_particle(MPMParticle<DIM> *p, bool is_new_particle) {
-    int x = int(p->pos.x / mpm3d_grid_block_size);
-    int y = int(p->pos.y / mpm3d_grid_block_size);
-    int z = int(p->pos.z / mpm3d_grid_block_size);
+    int x = int(p->pos.x / grid_block_size);
+    int y = int(p->pos.y / grid_block_size);
+    int z = int(p->pos.z / grid_block_size);
     if (states.inside(x, y, z)) {
         int index = res[2] * res[1] * x + res[2] * y + z;
         particle_groups[index].push_back(p);
@@ -148,7 +146,7 @@ void MPMScheduler<DIM>::insert_particle(MPMParticle<DIM> *p, bool is_new_particl
     }
 }
 
-template<int DIM>
+template <int DIM>
 void MPMScheduler<DIM>::update_dt_limits(real t) {
     for (auto &ind : states.get_region()) {
         // Update those blocks needing an update
@@ -204,7 +202,7 @@ void MPMScheduler<DIM>::update_dt_limits(real t) {
             block_absolute_vel = std::max(block_absolute_vel, std::abs(min_vel_expanded[ind][i]));
             block_absolute_vel = std::max(block_absolute_vel, std::abs(max_vel_expanded[ind][i]));
         }
-        Vector3 levelset_query_position = Vector3(ind.get_pos() * real(mpm3d_grid_block_size));
+        Vector3 levelset_query_position = Vector3(ind.get_pos() * real(grid_block_size));
 
         real last_distance;
         if (levelset->inside(levelset_query_position)) {
@@ -213,7 +211,7 @@ void MPMScheduler<DIM>::update_dt_limits(real t) {
             last_distance = 0.0f;
         }
         if (last_distance < LevelSet3D::INF) {
-            real distance2boundary = std::max(last_distance - real(mpm3d_grid_block_size) * 0.75f, 0.5f);
+            real distance2boundary = std::max(last_distance - real(grid_block_size) * 0.75f, 0.5f);
             int64 boundary_limit = int64(cfl * distance2boundary / block_absolute_vel / base_delta_t);
             cfl_limit = std::min(cfl_limit, boundary_limit);
         }
@@ -221,13 +219,13 @@ void MPMScheduler<DIM>::update_dt_limits(real t) {
     }
 }
 
-template<int DIM>
+template <int DIM>
 void MPMScheduler<DIM>::update_particle_states() {
     for (auto &p : get_active_particles()) {
         Vector3i low_res_pos(
-                int(p->pos.x / mpm3d_grid_block_size),
-                int(p->pos.y / mpm3d_grid_block_size),
-                int(p->pos.z / mpm3d_grid_block_size)
+                int(p->pos.x / grid_block_size),
+                int(p->pos.y / grid_block_size),
+                int(p->pos.z / grid_block_size)
         );
         if (states[low_res_pos] == 2) {
             p->color = Vector3(1.0f);
@@ -239,7 +237,7 @@ void MPMScheduler<DIM>::update_particle_states() {
     }
 }
 
-template<int DIM>
+template <int DIM>
 void MPMScheduler<DIM>::reset_particle_states() {
     for (auto &p : get_active_particles()) {
         p->state = Particle::INACTIVE;
@@ -247,7 +245,7 @@ void MPMScheduler<DIM>::reset_particle_states() {
     }
 }
 
-template<int DIM>
+template <int DIM>
 void MPMScheduler<DIM>::enforce_smoothness(int64 t_int_increment) {
     Array<int64> new_max_dt_int = max_dt_int;
     for (auto &ind : states.get_region()) {
@@ -267,6 +265,7 @@ void MPMScheduler<DIM>::enforce_smoothness(int64 t_int_increment) {
     max_dt_int = new_max_dt_int;
 }
 
-template class MPMScheduler<3>;
+template
+class MPMScheduler<3>;
 
 TC_NAMESPACE_END

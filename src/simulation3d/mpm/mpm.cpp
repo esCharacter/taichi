@@ -39,8 +39,8 @@ TC_NAMESPACE_BEGIN
 template <int DIM>
 void MPM<DIM>::initialize(const Config &config) {
     Simulation3D::initialize(config);
-    res = config.get_vec3i("resolution");
-    gravity = config.get_vec3("gravity");
+    res = config.get("resolution", VectorI(1.0f));
+    gravity = config.get("gravity", Vector(0.0f));
     use_mpi = config.get("use_mpi", false);
     apic = config.get("apic", true);
     async = config.get("async", false);
@@ -68,11 +68,11 @@ void MPM<DIM>::initialize(const Config &config) {
         maximum_delta_t = base_delta_t;
     }
 
-    grid_velocity.initialize(res + Vector3i(1), Vector(0.0f), Vector3(0.0f));
-    grid_mass.initialize(res + Vector3i(1), 0, Vector3(0.0f));
-    grid_velocity_and_mass.initialize(res + Vector3i(1), Vector4(0.0f), Vector3(0.0f));
-    grid_locks.initialize(res + Vector3i(1), 0, Vector3(0.0f));
-    scheduler.initialize(res, base_delta_t, cfl, strength_dt_mul, &levelset, mpi_world_rank);
+    grid_velocity.initialize(res + VectorI(1), Vector(0.0f), Vector(0.0f));
+    grid_mass.initialize(res + VectorI(1), 0, Vector(0.0f));
+    grid_velocity_and_mass.initialize(res + VectorI(1), VectorP(0.0f), Vector(0.0f));
+    grid_locks.initialize(res + VectorI(1), 0, Vector(0.0f));
+    scheduler.initialize(res, base_delta_t, cfl, strength_dt_mul, &levelset, mpi_world_rank, grid_block_size);
 }
 
 template <int DIM>
@@ -81,7 +81,7 @@ void MPM<DIM>::add_particles(const Config &config) {
     for (int i = 0; i < res[0]; i++) {
         for (int j = 0; j < res[1]; j++) {
             for (int k = 0; k < res[2]; k++) {
-                Vector3 coord = Vector3(i + 0.5f, j + 0.5f, k + 0.5f) / Vector3(res);
+                Vector coord = Vector(i + 0.5f, j + 0.5f, k + 0.5f) / Vector(res);
                 real num = density_texture->sample(coord).x;
                 int t = (int)num + (rand() < num - int(num));
                 for (int l = 0; l < t; l++) {
@@ -110,11 +110,11 @@ template <int DIM>
 std::vector<RenderParticle> MPM<DIM>::get_render_particles() const {
     std::vector<RenderParticle> render_particles;
     render_particles.reserve(particles.size());
-    Vector3 center(res[0] / 2.0f, res[1] / 2.0f, res[2] / 2.0f);
+    Vector center(res[0] / 2.0f, res[1] / 2.0f, res[2] / 2.0f);
     for (auto p_p : particles) {
         Particle &p = *p_p;
         // at least synchronize the position
-        Vector3 pos = p.pos - center + (current_t_int - p.last_update) * base_delta_t * p.v;
+        Vector pos = p.pos - center + (current_t_int - p.last_update) * base_delta_t * p.v;
         if (p.state == Particle::UPDATING) {
             render_particles.push_back(RenderParticle(pos, Vector4(0.8f, 0.1f, 0.2f, 0.5f)));
         } else if (p.state == Particle::BUFFER) {
@@ -136,7 +136,7 @@ void MPM<DIM>::resample() {
         Vector4s v(0.0f), bv(0.0f);
         Matrix3s b(0.0f);
         Matrix3s cdg(0.0f);
-        Vector3 pos = p.pos;
+        Vector pos = p.pos;
         TC_MPM3D_PREPROCESS_KERNELS
         int x_min = get_stencil_start(pos.x);
         int y_min = get_stencil_start(pos.y);
@@ -150,8 +150,8 @@ void MPM<DIM>::resample() {
                 int k;
 
                 k = 0;
-                Vector3 *grid_velocity_ptr = &grid_velocity[x_min + i][y_min + j][z_min];
-                Vector4s dpos = Vector3(x_min + i, y_min + j, z_min) - pos;
+                Vector *grid_velocity_ptr = &grid_velocity[x_min + i][y_min + j][z_min];
+                Vector4s dpos = Vector(x_min + i, y_min + j, z_min) - pos;
 
                 Vector4s dw_2 = w_stages[0][i] * w_stages[1][j];
                 Vector4s dw_w = dw_2 * w_stages[2][k];
@@ -319,7 +319,7 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
                 grid_mass[ind] = mass;
                 CV(grid_velocity[ind]);
                 CV(1 / grid_mass[ind]);
-                grid_velocity[ind] = (1.0f / mass) * (*reinterpret_cast<Vector3 *>(&velocity_and_mass));
+                grid_velocity[ind] = (1.0f / mass) * (*reinterpret_cast<Vector *>(&velocity_and_mass));
                 CV(grid_velocity[ind]);
             }
         }
@@ -334,31 +334,31 @@ template <int DIM>
 void MPM<DIM>::grid_apply_boundary_conditions(const DynamicLevelSet3D &levelset, real t) {
     Array3D<int> cache(scheduler.res, 0);
     for (auto ind: cache.get_region()) {
-        Vector3 pos = Vector3(0.5 + ind[0], 0.5 + ind[1], 0.5 + ind[2]) * real(mpm3d_grid_block_size);
-        if (levelset.sample(pos, t) < mpm3d_grid_block_size) {
+        Vector pos = Vector(0.5 + ind[0], 0.5 + ind[1], 0.5 + ind[2]) * real(grid_block_size);
+        if (levelset.sample(pos, t) < grid_block_size) {
             cache[ind] = 1;
         } else {
             cache[ind] = 0;
         }
     }
     for (auto &ind : scheduler.get_active_grid_points()) {
-        if (cache[ind[0] / mpm3d_grid_block_size][ind[1] / mpm3d_grid_block_size][ind[2] / mpm3d_grid_block_size] ==
+        if (cache[ind[0] / grid_block_size][ind[1] / grid_block_size][ind[2] / grid_block_size] ==
             0) {
             continue;
         }
-        Vector3 pos = Vector3(0.5 + ind[0], 0.5 + ind[1], 0.5 + ind[2]);
+        Vector pos = Vector(0.5 + ind[0], 0.5 + ind[1], 0.5 + ind[2]);
         real phi = levelset.sample(pos, t);
         if (1 < phi || phi < -3) continue;
-        Vector3 n = levelset.get_spatial_gradient(pos, t);
+        Vector n = levelset.get_spatial_gradient(pos, t);
         Vector boundary_velocity = levelset.get_temporal_derivative(pos, t) * n;
-        Vector3 v = grid_velocity[ind] - boundary_velocity;
+        Vector v = grid_velocity[ind] - boundary_velocity;
         if (phi > 0) { // 0~1
             real pressure = std::max(-glm::dot(v, n), 0.0f);
             real mu = levelset.levelset0->friction;
             if (mu < 0) { // sticky
-                v = Vector3(0.0f);
+                v = Vector(0.0f);
             } else {
-                Vector3 t = v - n * glm::dot(v, n);
+                Vector t = v - n * glm::dot(v, n);
                 if (length(t) > 1e-6f) {
                     t = normalize(t);
                 }
@@ -707,7 +707,9 @@ MPM<DIM>::~MPM() {
 }
 
 typedef MPM<3> MPM3D;
-template class MPM<3>;
+
+template
+class MPM<3>;
 
 TC_IMPLEMENTATION(Simulation3D, MPM3D, "mpm");
 

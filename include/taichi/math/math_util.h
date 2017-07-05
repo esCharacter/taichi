@@ -306,6 +306,14 @@ inline real det(const Matrix3 &m) {
 
 //#define rand frand
 
+template <int DIM>
+class IndexND;
+
+template <int DIM>
+class RegionND;
+
+template <int DIM, typename T>
+class ArrayND;
 
 TC_NAMESPACE_END
 

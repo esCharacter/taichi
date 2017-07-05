@@ -15,7 +15,7 @@
 TC_NAMESPACE_BEGIN
 
 template <typename T>
-struct Array1D {
+class Array1D {
 private:
 public:
     int size;

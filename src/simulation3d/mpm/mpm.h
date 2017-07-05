@@ -26,45 +26,9 @@
 
 #include "mpm_scheduler.h"
 #include "mpm_particle.h"
+#include "mpm_utils.h"
 
 TC_NAMESPACE_BEGIN
-
-template <int DIM>
-auto get_vector();
-
-template <>
-auto get_vector<2>() {
-    return Vector2(0);
-}
-
-template <>
-auto get_vector<3>() {
-    return Vector3(0);
-}
-
-template <>
-auto get_vector<4>() {
-    return Vector4(0);
-}
-
-template <int DIM>
-auto get_matrix();
-
-template <>
-auto get_matrix<2>() {
-    return Matrix2(0);
-}
-
-template <>
-auto get_matrix<3>() {
-    return Matrix3(0);
-}
-
-template <>
-auto get_matrix<4>() {
-    return Matrix4(0);
-}
-
 
 // Supports FLIP?
 // #define TC_MPM_WITH_FLIP
@@ -72,8 +36,16 @@ auto get_matrix<4>() {
 template <int DIM>
 class MPM : public Simulation3D {
 public:
-    typedef decltype(get_vector<DIM>()) Vector;
-    typedef decltype(get_matrix<DIM>()) Matrix;
+    /*
+    using Vector = Vector<DIM>;
+    using VectorP = Vector<DIM + 1>;
+    using VectorI = Vector<DIM, int>;
+    using Matrix = Matrix<DIM>;
+    */
+    using Vector = Vector3;
+    using VectorP = Vector4;
+    using VectorI = Vector3i;
+    using Matrix = Matrix3;
     static const int D = DIM;
     static const int kernel_size;
     typedef MPMParticle<DIM> Particle;
@@ -85,10 +57,9 @@ public:
     Array3D<Vector> grid_velocity_backup;
 #endif
     Array3D<Spinlock> grid_locks;
-    Vector3i res;
+    VectorI res;
     Vector gravity;
     bool apic;
-
     bool async;
     real affine_damping;
     real base_delta_t;

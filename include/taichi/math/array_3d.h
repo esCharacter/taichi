@@ -19,16 +19,19 @@
 
 TC_NAMESPACE_BEGIN
 
-class Index3D {
+template <>
+class IndexND<3> {
 private:
     int x[2], y[2], z[2];
 public:
     int i, j, k;
     Vector3 storage_offset;
 
-    Index3D() {}
+    using Index3D = IndexND<3>;
 
-    Index3D(int x0, int x1, int y0, int y1, int z0, int z1, Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f)) {
+    IndexND() {}
+
+    IndexND(int x0, int x1, int y0, int y1, int z0, int z1, Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f)) {
         x[0] = x0;
         x[1] = x1;
         y[0] = y0;
@@ -41,7 +44,7 @@ public:
         this->storage_offset = storage_offset;
     }
 
-    Index3D(int i, int j, int k) {
+    IndexND(int i, int j, int k) {
         this->i = i;
         this->j = j;
         this->k = k;
@@ -122,16 +125,22 @@ public:
     }
 };
 
-class Region3D {
+using Index3D = IndexND<3>;
+
+template <>
+class RegionND<3> {
 private:
     int x[2], y[2], z[2];
     Index3D index_begin;
     Index3D index_end;
     Vector3 storage_offset;
 public:
-    Region3D() {}
 
-    Region3D(int x0, int x1, int y0, int y1, int z0, int z1, Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f)) {
+    using Region3D = RegionND<3>;
+
+    RegionND() {}
+
+    RegionND(int x0, int x1, int y0, int y1, int z0, int z1, Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f)) {
         x[0] = x0;
         x[1] = x1;
         y[0] = y0;
@@ -160,8 +169,10 @@ public:
     }
 };
 
+using Region3D = RegionND<3>;
+
 template <typename T>
-struct Array3D {
+class ArrayND<3, T> {
 protected:
     Region3D region;
     std::vector<T> data;
@@ -193,6 +204,9 @@ protected:
     };
 
 public:
+
+    template <typename S>
+    using Array3D = ArrayND<3, S>;
 
     int get_size() const {
         return size;
@@ -229,21 +243,21 @@ public:
         return Array3D<T>(width, height, depth, T(0), storage_offset);
     }
 
-    Array3D(const Vector3i &resolution, T init = T(0), Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f)) {
+    ArrayND(const Vector3i &resolution, T init = T(0), Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f)) {
         initialize(resolution, init, storage_offset);
     }
 
-    Array3D(int width, int height, int depth, T init = T(0), Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f)) {
+    ArrayND(int width, int height, int depth, T init = T(0), Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f)) {
         initialize(width, height, depth, init, storage_offset);
     }
 
-    Array3D(const Array3D<T> &arr) : Array3D(arr.width, arr.height, arr.depth) {
+    ArrayND(const Array3D<T> &arr) : ArrayND(arr.width, arr.height, arr.depth) {
         this->data = arr.data;
         this->storage_offset = arr.storage_offset;
     }
 
     Array3D<T> operator+(const Array3D<T> &b) const {
-        Array3D<T> o(width, height, depth);
+        Array3D < T > o(width, height, depth);
         assert(same_dim(b));
         for (int i = 0; i < size; i++) {
             o.data[i] = data[i] + b.data[i];
@@ -252,7 +266,7 @@ public:
     }
 
     Array3D<T> operator-(const Array3D<T> &b) const {
-        Array3D<T> o(width, height, depth);
+        Array3D < T > o(width, height, depth);
         assert(same_dim(b));
         for (int i = 0; i < size; i++) {
             o.data[i] = data[i] - b.data[i];
@@ -294,7 +308,7 @@ public:
     }
 
 
-    Array3D() {
+    ArrayND() {
         width = 0;
         height = 0;
         depth = 0;
@@ -303,7 +317,7 @@ public:
         data.resize(0);
     }
 
-    ~Array3D() {
+    ~ArrayND() {
     }
 
     void reset(T a) {
@@ -335,7 +349,7 @@ public:
     }
 
     Array3D<T> add(T alpha, const Array3D<T> &b) const {
-        Array3D o(width, height, depth);
+        Array3D<T> o(width, height, depth);
         assert(same_dim(b));
         for (int i = 0; i < size; i++) {
             o.data[i] = data[i] + alpha * b.data[i];
@@ -609,7 +623,10 @@ public:
 };
 
 template <typename T>
-void print(const Array3D<T> &arr) {
+using Array3D = ArrayND<3, T>;
+
+template <typename T>
+void print(const Array3D <T> &arr) {
     arr.print("");
 }
 
