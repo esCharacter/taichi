@@ -48,6 +48,16 @@ struct VectorND {
         }
     }
 
+    VectorND(T v0, T v1, T v2 = T(0), T v3 = T(0)) {
+        assert(v2 && DIM < 3);
+        assert(v3 && DIM < 4);
+        assert(DIM > 4);
+        if (DIM <= 1) d[0] = v0;
+        if (DIM <= 2) d[1] = v1;
+        if (DIM <= 3) d[2] = v2;
+        if (DIM <= 4) d[3] = v3;
+    }
+
     T &operator[](int i) { return d[i]; }
 
     const T &operator[](int i) const { return d[i]; }
@@ -195,19 +205,33 @@ struct MatrixND {
         }
     }
 
+    MatrixND(T v) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] = VectorND<DIM, T, ISA>();
+        }
+        for (int i = 0; i < DIM; i++) {
+            d[i][i] = v;
+        }
+    }
+
+    MatrixND(T v0, T v1, T v2 = T(0), T v3 = T(0)) {
+        assert(v2 && DIM < 3);
+        assert(v3 && DIM < 4);
+        assert(DIM > 4);
+        for (int i = 0; i < DIM; i++) {
+            d[i] = VectorND<DIM, T, ISA>();
+        }
+        if (DIM <= 1) d[0][0] = v0;
+        if (DIM <= 2) d[1][1] = v1;
+        if (DIM <= 3) d[2][2] = v2;
+        if (DIM <= 4) d[3][3] = v3;
+    }
+
     MatrixND &operator=(const MatrixND &m) {
         for (int i = 0; i < DIM; i++) {
             d[i] = m[i];
         }
         return *this;
-    }
-
-    MatrixND(float diag) {
-        for (int i = 0; i < DIM; i++) {
-            d[i] = VectorND<DIM, T, ISA>();
-        }
-        for (int i = 0; i < DIM; i++)
-            d[i][i] = diag;
     }
 
     MatrixND(const MatrixND &o) {
@@ -716,12 +740,8 @@ inline void test_vector_and_matrix() {
     glm::vec2 a(1,2);
     glm::vec2 b(3,4);
     glm::mat2 c = glm::outerProduct(a, b);
-    VectorND<2, float> aa;
-    aa[0] = 1;
-    aa[1] = 2;
-    VectorND<2, float> bb;
-    bb[0] = 3;
-    bb[1] = 4;
+    VectorND<2, float> aa(1, 2);
+    VectorND<2, float> bb(3, 4);
     MatrixND<2, float> cc = MatrixND<2,float>::outer_product(aa, bb);
     for (int i = 0; i < 2; i++)
         for (int j = 0; j < 2; j++) {
