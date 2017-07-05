@@ -13,8 +13,8 @@
 #include <memory>
 #include <vector>
 #include <string>
-#include <taichi/math/array_3d.h>
-#include <taichi/math/levelset_3d.h>
+#include <taichi/math/array.h>
+#include <taichi/math/levelset.h>
 #include <taichi/math/dynamic_levelset_3d.h>
 #include "mpm_utils.h"
 

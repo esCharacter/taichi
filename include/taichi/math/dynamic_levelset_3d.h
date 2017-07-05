@@ -9,11 +9,9 @@
 
 #pragma once
 
-
 #include <limits>
 #include <memory>
-#include <taichi/math/levelset_3d.h>
-
+#include <taichi/math/levelset.h>
 
 TC_NAMESPACE_BEGIN
 

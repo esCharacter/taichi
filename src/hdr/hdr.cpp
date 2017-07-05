@@ -35,16 +35,16 @@ public:
         int width = inp.get_width(), height = inp.get_height();
         assert_info(inp.get_width() == inp.get_height(), "only square image supported currently.");
 
-        Array2D<real> lum(inp.get_width(), inp.get_height());
-        Array2D<real> log_lum(inp.get_width(), inp.get_height());
+        Array2D<real> lum(inp.get_res());
+        Array2D<real> log_lum(inp.get_res());
         for (auto &ind : inp.get_region()) {
             lum[ind] = luminance(inp[ind]);
             log_lum[ind] = std::log(lum[ind] + 1e-4f);
         }
         std::vector<Array2D<real>> pyramid;
         std::vector<Array2D<real>> phi;
-        Array2D<Vector2> G(width, height);
-        Array2D<real> div_G(width, height);
+        Array2D<Vector2> G(Vector2i(width, height));
+        Array2D<real> div_G(Vector2i(width, height));
 
         pyramid.push_back(log_lum);
         int size = inp.get_width();
@@ -55,8 +55,8 @@ public:
         }
         phi.resize(pyramid.size());
         for (int k = (int)pyramid.size() - 1; k >= 0; k--) {
-            phi[k] = Array2D<real>(pyramid[k].get_width(), pyramid[k].get_height());
-            Array2D<real> grad_norm(pyramid[k].get_width(), pyramid[k].get_height());
+            phi[k] = Array2D<real>(pyramid[k].get_res());
+            Array2D<real> grad_norm(pyramid[k].get_res());
             real scale = std::pow(0.5f, k + 1);
             for (auto &ind : grad_norm.get_region()) {
                 real grad_x = 0, grad_y = 0;
@@ -112,7 +112,7 @@ public:
             set("maximum_iterations", max_solver_iterations);
         poisson_solver->initialize(cfg);
 
-        Array2D<PoissonSolver2D::CellType> boundary(width, height, PoissonSolver2D::INTERIOR);
+        Array2D<PoissonSolver2D::CellType> boundary(Vector2i(width, height), PoissonSolver2D::INTERIOR);
         poisson_solver->set_boundary_condition(boundary);
 
         real avg_div_G = div_G.get_average();
@@ -120,7 +120,7 @@ public:
             div_G[ind] -= avg_div_G;
         }
 
-        Array2D<real> I(width, height);
+        Array2D<real> I(Vector2i(width, height));
         poisson_solver->run(div_G, I, 1e-5f);
         for (auto &ind : oup.get_region()) {
             for (int i = 0; i < 3; i++) {

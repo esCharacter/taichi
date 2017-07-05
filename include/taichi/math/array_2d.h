@@ -164,7 +164,7 @@ protected:
     std::vector<T> data;
     typedef typename std::vector<T>::iterator iterator;
     int size;
-    int width, height;
+    Vector2i res;
     Vector2 storage_offset = Vector2(0.5f, 0.5f); // defualt : center storage
 public:
     template <typename S>
@@ -181,45 +181,34 @@ public:
         return region;
     }
 
-    void initialize(Vector2i resolution, T init = T(0), Vector2 storage_offset = Vector2(0.5f, 0.5f)) {
-        initialize(resolution.x, resolution.y, init, storage_offset);
+    ArrayND(const Vector2i &resolution, T init = T(0), Vector2 storage_offset = Vector2(0.5f)) {
+        initialize(resolution, init, storage_offset);
     }
 
-    void initialize(int width, int height, T init = T(0), Vector2 storage_offset = Vector2(0.5f, 0.5f)) {
-        //assert_info(width >= 2, "dim must be at least 2");
-        //assert_info(height >= 2, "dim must be at least 2");
-        this->width = width;
-        this->height = height;
-        region = Region2D(0, width, 0, height, storage_offset);
-        size = width * height;
+    void initialize(const Vector2i &res, T init = T(0), Vector2 storage_offset = Vector2(0.5f)) {
+        this->res = res;
+        region = Region2D(0, res[0], 0, res[1], storage_offset);
+        size = res[0] * res[1];
         data = std::vector<T>(size, init);
         this->storage_offset = storage_offset;
     }
 
     Array2D<T> same_shape(T init) const {
-        return ArrayND<2, T>(width, height, init, storage_offset);
+        return ArrayND<2, T>(res, init, storage_offset);
     }
 
     Array2D<T> same_shape() const {
-        return ArrayND<2, T>(width, height);
+        return ArrayND<2, T>(res);
     }
 
-    ArrayND(int width, int height, T init = T(0), Vector2 storage_offset = Vector2(0.5f, 0.5f)) {
-        initialize(width, height, init, storage_offset);
-    }
-
-    ArrayND(const Vector2i &res, T init = T(0), Vector2 storage_offset = Vector2(0.5f, 0.5f)) {
-        initialize(res.x, res.y, init, storage_offset);
-    }
-
-    ArrayND(const Array2D<T> &arr) : ArrayND(arr.width, arr.height) {
+    ArrayND(const Array2D<T> &arr) : ArrayND(res) {
         this->data = arr.data;
         this->storage_offset = arr.storage_offset;
     }
 
     template <typename P>
     Array2D<T> operator*(const P &b) const {
-        Array2D<T> o(width, height);
+        Array2D<T> o(res);
         for (int i = 0; i < size; i++) {
             o.data[i] = b * data[i];
         }
@@ -233,7 +222,7 @@ public:
     }
 
     Array2D<T> operator+(const Array2D<T> &b) const {
-        Array2D<T> o(width, height);
+        Array2D<T> o(res);
         assert(same_dim(b));
         for (int i = 0; i < size; i++) {
             o.data[i] = data[i] + b.data[i];
@@ -242,7 +231,7 @@ public:
     }
 
     Array2D<T> operator-(const Array2D<T> &b) const {
-        Array2D<T> o(width, height);
+        Array2D<T> o(res);
         assert(same_dim(b));
         for (int i = 0; i < size; i++) {
             o.data[i] = data[i] - b.data[i];
@@ -265,8 +254,7 @@ public:
     }
 
     Array2D<T> &operator=(const Array2D<T> &arr) {
-        this->width = arr.width;
-        this->height = arr.height;
+        this->res = arr.res;
         this->size = arr.size;
         this->data = arr.data;
         this->region = arr.region;
@@ -283,8 +271,7 @@ public:
 
 
     ArrayND() {
-        width = 0;
-        height = 0;
+        res = Vector2i(0);
         size = 0;
         data.resize(0);
     }
@@ -299,7 +286,7 @@ public:
     }
 
     bool same_dim(const Array2D<T> &arr) const {
-        return width == arr.width && height == arr.height;
+        return res == arr.res;
     }
 
     T dot(const Array2D<T> &b) const {
@@ -322,7 +309,7 @@ public:
 
 
     Array2D<T> add(T alpha, const Array2D<T> &b) const {
-        Array2D<T> o(width, height);
+        Array2D<T> o(res);
         assert(same_dim(b));
         for (int i = 0; i < size; i++) {
             o.data[i] = data[i] + alpha * b.data[i];
@@ -337,11 +324,11 @@ public:
     }
 
     T *operator[](int i) {
-        return &data[0] + i * height;
+        return &data[0] + i * res[1];
     }
 
     const T *operator[](int i) const {
-        return &data[0] + i * height;
+        return &data[0] + i * res[1];
     }
 
     const T &get(int i, int j) const {
@@ -408,10 +395,10 @@ public:
 
     void print(std::string name = "") const {
         if (name.size())
-            printf("%s[%dx%d]=", name.c_str(), width, height);
+            printf("%s[%dx%d]=", name.c_str(), res[0], res[1]);
         printf("\n");
-        for (int j = height - 1; j >= 0; j--) {
-            for (int i = 0; i < width; i++) {
+        for (int j = res[1] - 1; j >= 0; j--) {
+            for (int i = 0; i < res[0]; i++) {
                 printf("%+1.3f ", this->operator[](i)[j]);
             }
             printf("\n");
@@ -430,7 +417,7 @@ public:
     }
 
     bool inside(int i, int j) const {
-        return 0 <= i && i < width && 0 <= j && j < height;
+        return 0 <= i && i < res[0] && 0 <= j && j < res[1];
     }
 
     bool inside(const Vector2i &pos) const {
@@ -442,10 +429,10 @@ public:
     }
 
     T sample(real x, real y) const {
-        x = clamp(x - storage_offset.x, 0.f, width - 1.f - eps);
-        y = clamp(y - storage_offset.y, 0.f, height - 1.f - eps);
-        int x_i = clamp(int(x), 0, width - 2);
-        int y_i = clamp(int(y), 0, height - 2);
+        x = clamp(x - storage_offset.x, 0.f, res[0] - 1.f - eps);
+        y = clamp(y - storage_offset.y, 0.f, res[1] - 1.f - eps);
+        int x_i = clamp(int(x), 0, res[0] - 2);
+        int y_i = clamp(int(y), 0, res[1] - 2);
         real x_r = x - x_i;
         real y_r = y - y_i;
         return lerp(x_r,
@@ -467,14 +454,14 @@ public:
     }
 
     T sample_relative_coord(real x, real y) const {
-        x = x * width;
-        y = y * height;
+        x = x * res[0];
+        y = y * res[1];
         return sample(x, y);
     }
 
     T sample_relative_coord(const Vector2 &vec) const {
-        real x = vec.x * width;
-        real y = vec.y * height;
+        real x = vec.x * res[0];
+        real y = vec.y * res[1];
         return sample(x, y);
     }
 
@@ -502,38 +489,44 @@ public:
         return (*this)[index.i][index.j];
     }
 
+    Vector2i get_res() const {
+        return res;
+    }
+
     int get_width() const {
-        return width;
+        return res[0];
     }
 
     int get_height() const {
-        return height;
+        return res[1];
     }
 
     bool empty() const {
-        return !(width > 0 && height > 0);
+        return !(res[0] > 0 && res[1] > 0);
     }
 
     T get_average() const {
         T sum(0);
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
+        for (int i = 0; i < res[0]; i++) {
+            for (int j = 0; j < res[1]; j++) {
                 sum += get(i, j);
             }
         }
-        return 1.0f / width / height * sum;
+        return 1.0f / size * sum;
     }
 
     bool inside(const Vector2 &pos, real tolerance = 1e-4f) const {
-        return (-tolerance <= pos.x && pos.x <= width + tolerance && -tolerance <= pos.y && pos.y < height + tolerance);
+        return (-tolerance <= pos.x && pos.x <= res[0] + tolerance && -tolerance <= pos.y &&
+                pos.y < res[1] + tolerance);
     }
 
     Region2D get_rasterization_region(Vector2 pos, int half_extent) const {
         int x = (int)floor(pos.x - storage_offset.x);
         int y = (int)floor(pos.y - storage_offset.y);
-        return Region2D(std::max(0, x - half_extent + 1), std::min(width, x + half_extent + 1),
+        return Region2D(std::max(0, x - half_extent + 1),
+                        std::min(res[0], x + half_extent + 1),
                         std::max(0, y - half_extent + 1),
-                        std::min(height, y + half_extent + 1), storage_offset);
+                        std::min(res[1], y + half_extent + 1), storage_offset);
     }
 
     bool is_normal() const {
@@ -546,17 +539,17 @@ public:
     }
 
     Array2D<T> rasterize(int width, int height) {
-        Array2D<T> out(width, height);
+        Array2D<T> out(Vector2i(width, height));
         Vector2 actual_size;
         if (storage_offset == Vector2(0.0f, 0.0f)) {
-            actual_size = Vector2(this->width - 1, this->height - 1);
+            actual_size = Vector2(this->res[0] - 1, this->res[1] - 1);
         } else {
-            actual_size = Vector2(this->width, this->height);
+            actual_size = Vector2(this->res[0], this->res[1]);
         }
 
-        Vector2 scale_factor = actual_size / Vector2(width, height);
+        Vector2 scale_factor = actual_size / res;
 
-        for (auto &ind : Region2D(0, width, 0, height, Vector2(0.5f, 0.5f))) {
+        for (auto &ind : Region2D(0, res[0], 0, res[1], Vector2(0.5f, 0.5f))) {
             Vector2 p = scale_factor * ind.get_pos();
             out[ind] = sample(p);
         }
@@ -581,15 +574,15 @@ public:
 
     void flip(int axis) {
         if (axis == 0) {
-            for (int i = 0; i < width / 2; i++) {
-                for (int j = 0; j < height; j++) {
-                    std::swap((*this)[i][j], (*this)[width - 1 - i][j]);
+            for (int i = 0; i < res[0] / 2; i++) {
+                for (int j = 0; j < res[1]; j++) {
+                    std::swap((*this)[i][j], (*this)[res[0] - 1 - i][j]);
                 }
             }
         } else {
-            for (int i = 0; i < width; i++) {
-                for (int j = 0; j < height / 2; j++) {
-                    std::swap((*this)[i][j], (*this)[i][height - 1 - j]);
+            for (int i = 0; i < res[0]; i++) {
+                for (int j = 0; j < res[1] / 2; j++) {
+                    std::swap((*this)[i][j], (*this)[i][res[1] - 1 - j]);
                 }
             }
         }
@@ -599,8 +592,8 @@ public:
 
     void write_to_disk(const std::string &fn) {
         FILE *f = fopen(fn.c_str(), "wb");
-        fwrite(&width, sizeof(width), 1, f);
-        fwrite(&height, sizeof(height), 1, f);
+        fwrite(&res[0], sizeof(res[0]), 1, f);
+        fwrite(&res[1], sizeof(res[1]), 1, f);
         fwrite(&storage_offset, sizeof(storage_offset), 1, f);
         fwrite(&region, sizeof(region), 1, f);
         fwrite(&data[0], sizeof(data[0]), size, f);
@@ -613,11 +606,11 @@ public:
             return false;
         }
         size_t ret;
-        ret = fread(&width, sizeof(width), 1, f);
+        ret = fread(&res[0], sizeof(res[0]), 1, f);
         if (ret != 1) {
             return false;
         }
-        ret = fread(&height, sizeof(height), 1, f);
+        ret = fread(&res[1], sizeof(res[1]), 1, f);
         if (ret != 1) {
             return false;
         }
@@ -629,7 +622,7 @@ public:
         if (ret != 1) {
             return false;
         }
-        initialize(Vector2i(width, height), T(0), storage_offset);
+        initialize(res, T(0), storage_offset);
         ret = fread(&data[0], sizeof(data[0]), size, f);
         if (ret != size) {
             return false;
@@ -645,26 +638,26 @@ public:
     void load(const std::string &filename);
 
     void set_pixel(real x, real y, const T &pixel) {
-        x *= this->width;
-        y *= this->height;
+        x *= this->res[0];
+        y *= this->res[1];
         x -= 0.5f;
         y -= 0.5f;
         int int_x = (int)x;
         int int_y = (int)y;
-        if (int_x < 0 || int_x >= this->width || int_y < 0 || int_y >= this->height)
+        if (int_x < 0 || int_x >= this->res[0] || int_y < 0 || int_y >= this->res[1])
             return;
         this->operator[](int_x)[int_y] = pixel;
     }
 
     T sample_as_texture(real x, real y, bool interp = true) {
-        x *= this->width;
-        y *= this->height;
+        x *= this->res[0];
+        y *= this->res[1];
         x -= 0.5f;
         y -= 0.5f;
-        x = clamp(x, 0.0f, this->width - 1.0f);
-        y = clamp(y, 0.0f, this->height - 1.0f);
-        int ix = clamp(int(x), 0, this->width - 2);
-        int iy = clamp(int(y), 0, this->height - 2);
+        x = clamp(x, 0.0f, this->res[0] - 1.0f);
+        y = clamp(y, 0.0f, this->res[1] - 1.0f);
+        int ix = clamp(int(x), 0, this->res[0] - 2);
+        int iy = clamp(int(y), 0, this->res[1] - 2);
         if (!interp) {
             x = real(ix);
             y = real(iy);
@@ -684,7 +677,7 @@ using Array2D = ArrayND<2, T>;
 
 template <typename T, typename P>
 Array2D<T> operator*(const P &b, const Array2D<T> &a) {
-    Array2D<T> o(a.width, a.height);
+    Array2D<T> o(a.res);
     for (int i = 0; i < a.size; i++) {
         o.data[i] = b * a.data[i];
     }

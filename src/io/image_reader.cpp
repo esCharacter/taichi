@@ -20,15 +20,15 @@ Array2D<Vector4> dcraw_read(const std::string &filepath) {
     std::lock_guard<std::mutex> lock_guard(lock);
     std::string filepath_non_const = filepath;
     std::vector<const char *> argv{
-        "dcraw.exe",
-        "-4",
-        "-T",
-        "-W",
-        filepath_non_const.c_str()
+            "dcraw.exe",
+            "-4",
+            "-T",
+            "-W",
+            filepath_non_const.c_str()
     };
     DCRawOutput output;
     dcraw_main((int)argv.size(), &argv[0], output);
-    auto img = Array2D<Vector4>(output.width, output.height, Vector4(0.0f));
+    auto img = Array2D<Vector4>(Vector2i(output.width, output.height), Vector4(0.0f));
     for (auto &ind : img.get_region()) {
         for (int i = 0; i < output.channels; i++) {
             img[ind][i] = output.data[output.channels * (ind.j * output.width + ind.i) + i];

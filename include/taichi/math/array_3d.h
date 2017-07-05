@@ -178,7 +178,7 @@ protected:
     std::vector<T> data;
     typedef typename std::vector<T>::iterator iterator;
     int size;
-    int width, height, depth;
+    Vector3i res;
     int stride;
     Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f); // defualt : center storage
     struct Accessor2D {
@@ -216,48 +216,30 @@ public:
         return region;
     }
 
-    void initialize(const Vector3i &resolution, T init = T(0), Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f)) {
-        initialize(resolution.x, resolution.y, resolution.z, init, storage_offset);
+    ArrayND(const Vector3i &resolution, T init = T(0), Vector3 storage_offset = Vector3(0.5f)) {
+        initialize(resolution, init, storage_offset);
     }
 
-    void
-    initialize(int width, int height, int depth, T init = T(0), Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f)) {
-        //assert_info(width >= 2, "dim must be at least 2");
-        //assert_info(height >= 2, "dim must be at least 2");
-        //assert_info(depth >= 2, "dim must be at least 2");
-        this->width = width;
-        this->height = height;
-        this->depth = depth;
-        region = Region3D(0, width, 0, height, 0, depth, storage_offset);
-        size = width * height * depth;
-        stride = height * depth;
+    void initialize(const Vector3i &res, T init = T(0), Vector3 storage_offset = Vector3(0.5f)) {
+        this->res = res;
+        region = Region3D(0, res[0], 0, res[1], 0, res[2], storage_offset);
+        size = res[0] * res[1] * res[2];
+        stride = res[1] * res[2];
         data = std::vector<T>(size, init);
         this->storage_offset = storage_offset;
     }
 
-    Array3D<T> same_shape(T init) const {
-        return Array3D<T>(width, height, depth, init, storage_offset);
+    Array3D<T> same_shape(T init = T(0)) const {
+        return Array3D<T>(res, init, storage_offset);
     }
 
-    Array3D<T> same_shape() const {
-        return Array3D<T>(width, height, depth, T(0), storage_offset);
-    }
-
-    ArrayND(const Vector3i &resolution, T init = T(0), Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f)) {
-        initialize(resolution, init, storage_offset);
-    }
-
-    ArrayND(int width, int height, int depth, T init = T(0), Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f)) {
-        initialize(width, height, depth, init, storage_offset);
-    }
-
-    ArrayND(const Array3D<T> &arr) : ArrayND(arr.width, arr.height, arr.depth) {
+    ArrayND(const Array3D<T> &arr) : ArrayND(res) {
         this->data = arr.data;
         this->storage_offset = arr.storage_offset;
     }
 
     Array3D<T> operator+(const Array3D<T> &b) const {
-        Array3D < T > o(width, height, depth);
+        Array3D<T> o(res);
         assert(same_dim(b));
         for (int i = 0; i < size; i++) {
             o.data[i] = data[i] + b.data[i];
@@ -266,7 +248,7 @@ public:
     }
 
     Array3D<T> operator-(const Array3D<T> &b) const {
-        Array3D < T > o(width, height, depth);
+        Array3D<T> o(res);
         assert(same_dim(b));
         for (int i = 0; i < size; i++) {
             o.data[i] = data[i] - b.data[i];
@@ -289,9 +271,7 @@ public:
     }
 
     Array3D<T> &operator=(const Array3D<T> &arr) {
-        this->width = arr.width;
-        this->height = arr.height;
-        this->depth = arr.depth;
+        this->res = arr.res;
         this->size = arr.size;
         this->stride = arr.stride;
         this->data = arr.data;
@@ -309,9 +289,7 @@ public:
 
 
     ArrayND() {
-        width = 0;
-        height = 0;
-        depth = 0;
+        res = Vector3i(0);
         size = 0;
         stride = 0;
         data.resize(0);
@@ -327,7 +305,7 @@ public:
     }
 
     bool same_dim(const Array3D<T> &arr) const {
-        return width == arr.width && height == arr.height && depth == arr.depth;
+        return res == arr.res;
     }
 
     T dot(const Array3D<T> &b) const {
@@ -349,7 +327,7 @@ public:
     }
 
     Array3D<T> add(T alpha, const Array3D<T> &b) const {
-        Array3D<T> o(width, height, depth);
+        Array3D<T> o(res);
         assert(same_dim(b));
         for (int i = 0; i < size; i++) {
             o.data[i] = data[i] + alpha * b.data[i];
@@ -364,11 +342,11 @@ public:
     }
 
     const Accessor2D operator[](int i) {
-        return Accessor2D(&data[0] + i * stride, depth);
+        return Accessor2D(&data[0] + i * stride, res[2]);
     }
 
     const ConstAccessor2D operator[](int i) const {
-        return ConstAccessor2D(&data[0] + i * stride, depth);
+        return ConstAccessor2D(&data[0] + i * stride, res[2]);
     }
 
     const T &get(int i, int j, int k) const {
@@ -452,11 +430,11 @@ public:
 
     void print(std::string name = "") const {
         if (name.size())
-            printf("%s[%dx%d]=", name.c_str(), width, height);
+            printf("%s[%dx%d]=", name.c_str(), res[0], res[1]);
         printf("\n");
-        for (int k = 0; k < depth; k++) {
-            for (int j = height - 1; j >= 0; j--) {
-                for (int i = 0; i < width; i++) {
+        for (int k = 0; k < res[2]; k++) {
+            for (int j = res[1] - 1; j >= 0; j--) {
+                for (int i = 0; i < res[0]; i++) {
                     printf("%+1.3f ", (*this)[i][j][k]);
                 }
                 printf("\n");
@@ -477,7 +455,7 @@ public:
     }
 
     bool inside(int i, int j, int k) const {
-        return 0 <= i && i < width && 0 <= j && j < height && 0 <= k && k < depth;
+        return 0 <= i && i < res[0] && 0 <= j && j < res[1] && 0 <= k && k < res[2];
     }
 
     bool inside(Index3D index) const {
@@ -485,12 +463,12 @@ public:
     }
 
     T sample(real x, real y, real z) const {
-        x = clamp(x - storage_offset.x, 0.f, width - 1.f - eps);
-        y = clamp(y - storage_offset.y, 0.f, height - 1.f - eps);
-        z = clamp(z - storage_offset.z, 0.f, depth - 1.f - eps);
-        int x_i = clamp(int(x), 0, width - 2);
-        int y_i = clamp(int(y), 0, height - 2);
-        int z_i = clamp(int(z), 0, depth - 2);
+        x = clamp(x - storage_offset.x, 0.f, res[0] - 1.f - eps);
+        y = clamp(y - storage_offset.y, 0.f, res[1] - 1.f - eps);
+        z = clamp(z - storage_offset.z, 0.f, res[2] - 1.f - eps);
+        int x_i = clamp(int(x), 0, res[0] - 2);
+        int y_i = clamp(int(y), 0, res[1] - 2);
+        int z_i = clamp(int(z), 0, res[2] - 2);
         real x_r = x - x_i;
         real y_r = y - y_i;
         real z_r = z - z_i;
@@ -518,16 +496,16 @@ public:
     }
 
     T sample_relative_coord(const Vector3 &vec) const {
-        real x = vec.x * width;
-        real y = vec.y * height;
-        real z = vec.z * depth;
+        real x = vec.x * res[0];
+        real y = vec.y * res[1];
+        real z = vec.z * res[2];
         return sample(x, y, z);
     }
 
     T sample_relative_coord(real x, real y, real z) const {
-        x = x * width;
-        y = y * height;
-        z = z * depth;
+        x = x * res[0];
+        y = y * res[1];
+        z = z * res[2];
         return sample(x, y, z);
     }
 
@@ -555,16 +533,20 @@ public:
         return (*this)[index.i][index.j][index.k];
     }
 
+    Vector3i get_res() const {
+        return res;
+    }
+
     int get_width() const {
-        return width;
+        return res[0];
     }
 
     int get_height() const {
-        return height;
+        return res[1];
     }
 
     int get_depth() const {
-        return depth;
+        return res[2];
     }
 
     bool empty() const {
@@ -573,20 +555,20 @@ public:
 
     T get_average() const {
         T sum(0);
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
-                for (int k = 0; k < depth; k++) {
+        for (int i = 0; i < res[0]; i++) {
+            for (int j = 0; j < res[1]; j++) {
+                for (int k = 0; k < res[2]; k++) {
                     sum += get(i, j, k);
                 }
             }
         }
-        return 1.0f / width / height / depth * sum;
+        return 1.0f / size * sum;
     }
 
     bool inside(const Vector3 &pos, real tolerance = 1e-4f) const {
-        return (-tolerance < pos.x && pos.x < width + tolerance &&
-                -tolerance < pos.y && pos.y < height + tolerance &&
-                -tolerance < pos.z && pos.z < depth + tolerance);
+        return (-tolerance < pos.x && pos.x < res[0] + tolerance &&
+                -tolerance < pos.y && pos.y < res[1] + tolerance &&
+                -tolerance < pos.z && pos.z < res[2] + tolerance);
     }
 
     Region3D get_rasterization_region(Vector3 pos, int half_extent) const {
@@ -594,9 +576,9 @@ public:
         int y = (int)floor(pos.y - storage_offset.y);
         int z = (int)floor(pos.z - storage_offset.z);
         return Region3D(
-                std::max(0, x - half_extent + 1), std::min(width, x + half_extent + 1),
-                std::max(0, y - half_extent + 1), std::min(height, y + half_extent + 1),
-                std::max(0, z - half_extent + 1), std::min(depth, z + half_extent + 1),
+                std::max(0, x - half_extent + 1), std::min(res[0], x + half_extent + 1),
+                std::max(0, y - half_extent + 1), std::min(res[1], y + half_extent + 1),
+                std::max(0, z - half_extent + 1), std::min(res[2], z + half_extent + 1),
                 storage_offset);
     }
 
@@ -626,7 +608,7 @@ template <typename T>
 using Array3D = ArrayND<3, T>;
 
 template <typename T>
-void print(const Array3D <T> &arr) {
+void print(const Array3D<T> &arr) {
     arr.print("");
 }
 

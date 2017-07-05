@@ -25,7 +25,7 @@ public:
     ImageAccumulator() {}
 
     ImageAccumulator(int width, int height) : width(width), height(height),
-        buffer(width, height), counter(width, height)
+        buffer(Vector2i(width, height)), counter(Vector2i(width, height))
     {
         for (int i = 0; i < width * height; i++) {
             locks.push_back(Spinlock());

@@ -12,8 +12,7 @@
 
 #include <limits>
 #include <memory>
-#include <taichi/math/levelset_2d.h>
-
+#include <taichi/math/levelset.h>
 
 TC_NAMESPACE_BEGIN
 

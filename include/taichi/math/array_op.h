@@ -82,7 +82,7 @@ Array2D <T> gaussian_blur(const Array2D <T> &arr, real sigma) {
 
 template <typename T>
 Array2D <T> take_downsampled(const Array2D <T> &arr, int step) {
-    Array2D<T> ret(arr.get_width() / step, arr.get_height() / step);
+    Array2D<T> ret(Vector2i(arr.get_width() / step, arr.get_height() / step));
     for (auto &ind : ret.get_region()) {
         ret[ind] = arr[ind.i * step][ind.j * step];
     }

@@ -20,7 +20,7 @@
 #include <taichi/dynamics/simulation3d.h>
 #include <taichi/math/array_3d.h>
 #include <taichi/math/qr_svd.h>
-#include <taichi/math/levelset_3d.h>
+#include <taichi/math/levelset.h>
 #include <taichi/math/dynamic_levelset_3d.h>
 #include <taichi/system/threading.h>
 

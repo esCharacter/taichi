@@ -19,7 +19,7 @@ class ImageReader : public Unit {
 public:
     ImageReader() {}
     virtual Array2D<Vector4> read(const std::string &filepath) {
-        return Array2D<Vector4>(0, 0);
+        return Array2D<Vector4>(Vector2i(0, 0));
     }
 };
 

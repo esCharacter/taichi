@@ -12,7 +12,7 @@
 #include <taichi/visualization/image_buffer.h>
 #include <taichi/common/meta.h>
 #include <taichi/math/array_2d.h>
-#include <taichi/math/levelset_2d.h>
+#include <taichi/math/levelset.h>
 
 TC_NAMESPACE_BEGIN
 
@@ -75,12 +75,12 @@ public:
     }
 
     virtual Array<real> get_density() {
-        return Array<real>(0, 0);
+        return Array<real>(Vector2i(0));
     }
 
     virtual void add_source(const Config &config) {}
 
-    virtual Array<real> get_pressure() { return Array<real>(0, 0); }
+    virtual Array<real> get_pressure() { return Array<real>(Vector2i(0, 0)); }
 
 protected:
     std::vector<Particle> particles;

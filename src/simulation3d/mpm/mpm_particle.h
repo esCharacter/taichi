@@ -26,12 +26,12 @@ inline void check_singular_value_non_negative(Matrix3 &sig) {
     }
 }
 
-template<int DIM>
+template <int DIM>
 class MPMParticle {
 public:
-    typedef Vector3 Vector;
-    typedef Matrix3 Matrix;
-    typedef Region3D Region;
+    using Vector = Vector3;
+    using Matrix = Matrix3;
+    using Region = Region3D;
     static const int D = DIM;
     Vector3 color = Vector3(1, 0, 0);
     real vol;
@@ -61,7 +61,6 @@ public:
     virtual real get_allowed_dt() const = 0;
 
     virtual void initialize(const Config &config) {
-
     }
 
     virtual void set_compression(float compression) {
@@ -100,7 +99,7 @@ public:
     }
 };
 
-template<int DIM>
+template <int DIM>
 class EPParticle : public MPMParticle<DIM> {
 public:
     using Matrix = typename MPMParticle<DIM>::Matrix;
@@ -240,7 +239,7 @@ public:
     }
 };
 
-template<int DIM>
+template <int DIM>
 class DPParticle : public MPMParticle<DIM> {
 public:
     using Matrix = typename MPMParticle<DIM>::Matrix;
@@ -269,7 +268,7 @@ public:
     }
 
     void project(Matrix3 sigma, real alpha, Matrix3 &sigma_out, real &out) {
-        const real d = 3;
+        const real d = this->D;
         Matrix3 epsilon(log(sigma[0][0]), 0.f, 0.f, 0.f, log(sigma[1][1]), 0.f, 0.f, 0.f, log(sigma[2][2]));
         real tr = epsilon[0][0] + epsilon[1][1] + epsilon[2][2];
         Matrix3 epsilon_hat = epsilon - (tr) / d * Matrix3(1.0f);

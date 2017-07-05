@@ -24,7 +24,7 @@ public:
 
     virtual Array2D<Vector3> apply(const Array2D<Vector3> &inp) override {
         int width = inp.get_width(), height = inp.get_height();
-        Array2D<real> lum(inp.get_width(), inp.get_height());
+        Array2D<real> lum(inp.get_res());
         for (auto &ind : inp.get_region()) {
             lum[ind] = luminance(inp[ind]);
         }
@@ -68,7 +68,7 @@ public:
         int y_slices = num_slices;
         int x_slice_size = (int)std::ceil(1.0f * width / num_slices);
         int y_slice_size = (int)std::ceil(1.0f * height / num_slices);
-        Array2D<real> lum(inp.get_width(), inp.get_height());
+        Array2D<real> lum(inp.get_res());
         for (auto &ind : inp.get_region()) {
             lum[ind] = luminance(inp[ind]);
         }

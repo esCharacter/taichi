@@ -31,10 +31,10 @@ enum class InstructionSet {
 };
 
 template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
-struct Vector {
+struct VectorND {
     T d[DIM];
 
-    Vector(T v) {
+    VectorND(T v) {
         for (int i = 0; i < DIM; i++) {
             d[i] = v;
         }
@@ -44,7 +44,7 @@ struct Vector {
 };
 
 template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
-struct Matrix {
+struct MatrixND {
     T d[DIM][DIM];
 
     // TODO: complete this

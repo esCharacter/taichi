@@ -10,8 +10,7 @@
 
 #include <taichi/python/export.h>
 #include <taichi/common/config.h>
-#include <taichi/math/levelset_2d.h>
-#include <taichi/math/levelset_3d.h>
+#include <taichi/math/levelset.h>
 #include <taichi/visualization/rgb.h>
 #include <taichi/math/array_op.h>
 #include <taichi/math/dynamic_levelset_2d.h>
@@ -95,7 +94,7 @@ void ndarray_to_array2d(T *arr, long long input, int width, int height) // 'inpu
 void
 ndarray_to_array2d_real(Array2D<real> *arr, long long input, int width, int height) // 'input' is actually a pointer...
 {
-    arr->initialize(width, height);
+    arr->initialize(Vector2i(width, height));
     for (auto &ind : arr->get_region()) {
         (*arr)[ind] = reinterpret_cast<float *>(input)[ind.i * height + ind.j];
     }

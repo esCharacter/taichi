@@ -22,7 +22,7 @@ public:
     virtual void initialize(const Config &config);
     virtual void render_stage() {};
     virtual void set_scene(std::shared_ptr<Scene> scene);
-    virtual Array2D<Vector3> get_output() { return Array2D<Vector3>(width, height); };
+    virtual Array2D<Vector3> get_output() { return Array2D<Vector3>(Vector2i(width, height)); };
     virtual void write_output(std::string fn);
 
 protected:
@@ -44,7 +44,7 @@ class TemperatureRenderer : public Renderer {
 public:
     void initialize(Config &config) {
         Renderer::initialize(config);
-        buffer.initialize(width, height);
+        buffer.initialize(Vector2i(width, height));
     }
 
     Vector3 trace(Ray &ray) {

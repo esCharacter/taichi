@@ -20,7 +20,7 @@
 #include <taichi/common/asset_manager.h>
 
 #include <taichi/geometry/factory.h>
-#include <taichi/math/levelset_3d.h>
+#include <taichi/math/levelset.h>
 
 PYBIND11_MAKE_OPAQUE(std::vector<taichi::RenderParticle>);
 PYBIND11_MAKE_OPAQUE(std::vector<taichi::Triangle>);
