@@ -29,15 +29,51 @@
 
 TC_NAMESPACE_BEGIN
 
+template <int DIM>
+auto get_vector();
+
+template <>
+auto get_vector<2>() {
+    return Vector2(0);
+}
+
+template <>
+auto get_vector<3>() {
+    return Vector3(0);
+}
+
+template <>
+auto get_vector<4>() {
+    return Vector4(0);
+}
+
+template <int DIM>
+auto get_matrix();
+
+template <>
+auto get_matrix<2>() {
+    return Matrix2(0);
+}
+
+template <>
+auto get_matrix<3>() {
+    return Matrix3(0);
+}
+
+template <>
+auto get_matrix<4>() {
+    return Matrix4(0);
+}
+
+
 // Supports FLIP?
 // #define TC_MPM_WITH_FLIP
 
 template <int DIM>
 class MPM : public Simulation3D {
 public:
-    typedef Vector3 Vector;
-    typedef Matrix3 Matrix;
-    typedef Region3D Region;
+    typedef decltype(get_vector<DIM>()) Vector;
+    typedef decltype(get_matrix<DIM>()) Matrix;
     static const int D = DIM;
     static const int kernel_size;
     typedef MPMParticle<DIM> Particle;

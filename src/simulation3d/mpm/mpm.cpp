@@ -707,6 +707,7 @@ MPM<DIM>::~MPM() {
 }
 
 typedef MPM<3> MPM3D;
+template class MPM<3>;
 
 TC_IMPLEMENTATION(Simulation3D, MPM3D, "mpm");
 

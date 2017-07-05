@@ -24,6 +24,32 @@ TC_NAMESPACE_BEGIN
 #define TC_ALIGNED(x) __attribute__((aligned(x)))
 #endif
 
+enum class InstructionSet {
+    None,
+    AVX,
+    AVX2
+};
+
+template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
+struct Vector {
+    T d[DIM];
+
+    Vector(T v) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] = v;
+        }
+    }
+
+    // TODO: complete this
+};
+
+template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
+struct Matrix {
+    T d[DIM][DIM];
+
+    // TODO: complete this
+};
+
 // SIMD Vector4
 struct TC_ALIGNED(16) Vector4s {
     union {
@@ -32,9 +58,6 @@ struct TC_ALIGNED(16) Vector4s {
             float x, y, z, w;
         };
     };
-
-    // without zero-initialization
-    Vector4s(void *) {};
 
     Vector4s() : Vector4s(0.0f) {};
 
