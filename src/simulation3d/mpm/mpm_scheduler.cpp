@@ -8,13 +8,14 @@
     the MIT license as written in the LICENSE file.
 *******************************************************************************/
 
-#include "mpm3_scheduler.h"
+#include "mpm_scheduler.h"
 
 TC_NAMESPACE_BEGIN
 
 template <typename T> using Array = Array3D<T>;
 
-void MPM3Scheduler::expand(bool expand_vel, bool expand_state) {
+template<int DIM>
+void MPMScheduler<DIM>::expand(bool expand_vel, bool expand_state) {
     Array<int> new_states;
     Array<int> old_states;
     if (expand_state) {
@@ -63,7 +64,8 @@ void MPM3Scheduler::expand(bool expand_vel, bool expand_state) {
     } // 1: buffer, 2: updating
 }
 
-void MPM3Scheduler::update() {
+template<int DIM>
+void MPMScheduler<DIM>::update() {
     // Use <= here since grid_res = sim_res + 1
     active_particles.clear();
     active_grid_points.clear();
@@ -98,7 +100,8 @@ void MPM3Scheduler::update() {
     */
 }
 
-int64 MPM3Scheduler::update_max_dt_int(int64 t_int) {
+template<int DIM>
+int64 MPMScheduler<DIM>::update_max_dt_int(int64 t_int) {
     int64 ret = 1LL << 60;
     for (auto &ind : max_dt_int.get_region()) {
         int64 this_step_limit = std::min(max_dt_int_cfl[ind], max_dt_int_strength[ind]);
@@ -114,7 +117,8 @@ int64 MPM3Scheduler::update_max_dt_int(int64 t_int) {
     return ret;
 }
 
-void MPM3Scheduler::update_particle_groups() {
+template<int DIM>
+void MPMScheduler<DIM>::update_particle_groups() {
     // Remove all updating particles, and then re-insert them
     for (auto &ind : states.get_region()) {
         if (states[ind] == 0) {
@@ -128,7 +132,8 @@ void MPM3Scheduler::update_particle_groups() {
     }
 }
 
-void MPM3Scheduler::insert_particle(MPM3Particle *p, bool is_new_particle) {
+template<int DIM>
+void MPMScheduler<DIM>::insert_particle(MPMParticle<DIM> *p, bool is_new_particle) {
     int x = int(p->pos.x / mpm3d_grid_block_size);
     int y = int(p->pos.y / mpm3d_grid_block_size);
     int z = int(p->pos.z / mpm3d_grid_block_size);
@@ -143,7 +148,8 @@ void MPM3Scheduler::insert_particle(MPM3Particle *p, bool is_new_particle) {
     }
 }
 
-void MPM3Scheduler::update_dt_limits(real t) {
+template<int DIM>
+void MPMScheduler<DIM>::update_dt_limits(real t) {
     for (auto &ind : states.get_region()) {
         // Update those blocks needing an update
         if (!updated[ind]) {
@@ -215,7 +221,8 @@ void MPM3Scheduler::update_dt_limits(real t) {
     }
 }
 
-void MPM3Scheduler::update_particle_states() {
+template<int DIM>
+void MPMScheduler<DIM>::update_particle_states() {
     for (auto &p : get_active_particles()) {
         Vector3i low_res_pos(
                 int(p->pos.x / mpm3d_grid_block_size),
@@ -224,22 +231,24 @@ void MPM3Scheduler::update_particle_states() {
         );
         if (states[low_res_pos] == 2) {
             p->color = Vector3(1.0f);
-            p->state = MPM3Particle::UPDATING;
+            p->state = Particle::UPDATING;
         } else {
             p->color = Vector3(0.7f);
-            p->state = MPM3Particle::BUFFER;
+            p->state = Particle::BUFFER;
         }
     }
 }
 
-void MPM3Scheduler::reset_particle_states() {
+template<int DIM>
+void MPMScheduler<DIM>::reset_particle_states() {
     for (auto &p : get_active_particles()) {
-        p->state = MPM3Particle::INACTIVE;
+        p->state = Particle::INACTIVE;
         p->color = Vector3(0.3f);
     }
 }
 
-void MPM3Scheduler::enforce_smoothness(int64 t_int_increment) {
+template<int DIM>
+void MPMScheduler<DIM>::enforce_smoothness(int64 t_int_increment) {
     Array<int64> new_max_dt_int = max_dt_int;
     for (auto &ind : states.get_region()) {
         if (states[ind] != 0) {
@@ -257,5 +266,7 @@ void MPM3Scheduler::enforce_smoothness(int64 t_int_increment) {
     }
     max_dt_int = new_max_dt_int;
 }
+
+template class MPMScheduler<3>;
 
 TC_NAMESPACE_END

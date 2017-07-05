@@ -68,6 +68,8 @@ typedef long long int64;
 typedef unsigned long long uint64;
 #define TC_FORCE_INLINE __attribute__((always_inline))
 #endif
+typedef float float32;
+typedef double float64;
 
 // Check for inf, nan?
 // #define CV_ON

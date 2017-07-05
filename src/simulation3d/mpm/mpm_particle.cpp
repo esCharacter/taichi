@@ -9,3 +9,6 @@
 
 #include "mpm_particle.h"
 
+TC_NAMESPACE_BEGIN
+
+TC_NAMESPACE_END

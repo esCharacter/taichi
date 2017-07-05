@@ -17,15 +17,17 @@
 #include <taichi/math/levelset_3d.h>
 #include <taichi/math/dynamic_levelset_3d.h>
 
-#include "mpm3_particle.h"
+#include "mpm_particle.h"
 
 TC_NAMESPACE_BEGIN
 
 const int mpm3d_grid_block_size = 8;
 
-class MPM3Scheduler {
+template<int DIM>
+class MPMScheduler {
 public:
     template <typename T> using Array = Array3D<T>;
+    using Particle = MPMParticle<DIM>;
     Array<int64> max_dt_int_strength;
     Array<int64> max_dt_int_cfl;
     Array<int64> max_dt_int;
@@ -34,10 +36,10 @@ public:
     Array<int> updated;
     Array<Vector3> max_vel, min_vel;
     Array<Vector3> max_vel_expanded, min_vel_expanded;
-    std::vector<std::vector<MPM3Particle *>> particle_groups;
+    std::vector<std::vector<MPMParticle<DIM> *>> particle_groups;
     Vector3i res;
     Vector3i sim_res;
-    std::vector<MPM3Particle *> active_particles;
+    std::vector<MPMParticle<DIM> *> active_particles;
     std::vector<Vector3i> active_grid_points;
     DynamicLevelSet3D *levelset;
     real base_delta_t;
@@ -61,7 +63,7 @@ public:
         updated.initialize(res, 1);
         particle_groups.resize(res[0] * res[1] * res[2]);
         for (int i = 0; i < res[0] * res[1] * res[2]; i++) {
-            particle_groups[i] = std::vector<MPM3Particle *>();
+            particle_groups[i] = std::vector<MPMParticle<DIM> *>();
         }
 
         min_vel.initialize(res, Vector3(0));
@@ -105,7 +107,7 @@ public:
 
     void update_particle_groups();
 
-    void insert_particle(MPM3Particle *p, bool is_new_particle = false);
+    void insert_particle(MPMParticle<DIM> *p, bool is_new_particle = false);
 
     void update_dt_limits(real t);
 
@@ -117,11 +119,11 @@ public:
         return count;
     }
 
-    const std::vector<MPM3Particle *> &get_active_particles() const {
+    const std::vector<MPMParticle<DIM> *> &get_active_particles() const {
         return active_particles;
     }
 
-    std::vector<MPM3Particle *> &get_active_particles() {
+    std::vector<MPMParticle<DIM> *> &get_active_particles() {
         return active_particles;
     }
 
@@ -135,7 +137,7 @@ public:
 
     void enforce_smoothness(int64 t_int_increment);
 
-    Vector3i get_rough_pos(const MPM3Particle *p) const {
+    Vector3i get_rough_pos(const MPMParticle<DIM> *p) const {
         int x = int(p->pos.x / mpm3d_grid_block_size);
         int y = int(p->pos.y / mpm3d_grid_block_size);
         int z = int(p->pos.z / mpm3d_grid_block_size);
@@ -153,7 +155,7 @@ public:
         return belonging[get_rough_pos(pos)];
     }
 
-    int belongs_to(const MPM3Particle *p) const {
+    int belongs_to(const MPMParticle<DIM> *p) const {
         return belonging[get_rough_pos(p)];
     }
 

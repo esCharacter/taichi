@@ -24,8 +24,8 @@
 #include <taichi/math/dynamic_levelset_3d.h>
 #include <taichi/system/threading.h>
 
-#include "mpm3_scheduler.h"
-#include "mpm3_particle.h"
+#include "mpm_scheduler.h"
+#include "mpm_particle.h"
 
 TC_NAMESPACE_BEGIN
 
@@ -34,15 +34,14 @@ TC_NAMESPACE_BEGIN
 
 template <int DIM>
 class MPM : public Simulation3D {
-protected:
+public:
     typedef Vector3 Vector;
     typedef Matrix3 Matrix;
     typedef Region3D Region;
     static const int D = DIM;
     static const int kernel_size;
-
-public:
-    std::vector<MPM3Particle *> particles; // for (copy) efficiency, we do not use smart pointers here
+    typedef MPMParticle<DIM> Particle;
+    std::vector<MPMParticle<DIM> *> particles; // for (copy) efficiency, we do not use smart pointers here
     Array3D<Vector> grid_velocity;
     Array3D<real> grid_mass;
     Array3D<Vector4s> grid_velocity_and_mass;
@@ -68,7 +67,8 @@ public:
     int64 original_t_int_increment;
     int64 t_int_increment;
     int64 old_t_int;
-    MPM3Scheduler scheduler;
+    MPMScheduler<DIM> scheduler;
+    static const int grid_block_size = 8;
     bool mpi_initialized;
 
     bool test() const override;

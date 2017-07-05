@@ -8,7 +8,7 @@
     the MIT license as written in the LICENSE file.
 *******************************************************************************/
 
-#include "mpm3.h"
+#include "mpm.h"
 
 #ifdef TC_USE_MPI
 
@@ -23,7 +23,7 @@
 #include <taichi/math/math_simd.h>
 #include <taichi/common/asset_manager.h>
 #include <taichi/system/profiler.h>
-#include "mpm3_kernel.h"
+#include "mpm_kernel.h"
 
 TC_NAMESPACE_BEGIN
 
@@ -85,12 +85,12 @@ void MPM<DIM>::add_particles(const Config &config) {
                 real num = density_texture->sample(coord).x;
                 int t = (int)num + (rand() < num - int(num));
                 for (int l = 0; l < t; l++) {
-                    MPM3Particle *p = nullptr;
+                    Particle *p = nullptr;
                     if (config.get("type", std::string("ep")) == std::string("ep")) {
-                        p = new EPParticle3();
+                        p = new EPParticle<DIM>();
                         p->initialize(config);
                     } else {
-                        p = new DPParticle3();
+                        p = new DPParticle<DIM>();
                         p->initialize(config);
                     }
                     p->pos = Vector(i + rand(), j + rand(), k + rand());
@@ -108,20 +108,19 @@ void MPM<DIM>::add_particles(const Config &config) {
 
 template <int DIM>
 std::vector<RenderParticle> MPM<DIM>::get_render_particles() const {
-    using Particle = RenderParticle;
-    std::vector<Particle> render_particles;
+    std::vector<RenderParticle> render_particles;
     render_particles.reserve(particles.size());
     Vector3 center(res[0] / 2.0f, res[1] / 2.0f, res[2] / 2.0f);
     for (auto p_p : particles) {
-        MPM3Particle &p = *p_p;
+        Particle &p = *p_p;
         // at least synchronize the position
         Vector3 pos = p.pos - center + (current_t_int - p.last_update) * base_delta_t * p.v;
-        if (p.state == MPM3Particle::UPDATING) {
-            render_particles.push_back(Particle(pos, Vector4(0.8f, 0.1f, 0.2f, 0.5f)));
-        } else if (p.state == MPM3Particle::BUFFER) {
-            render_particles.push_back(Particle(pos, Vector4(0.8f, 0.8f, 0.2f, 0.5f)));
+        if (p.state == Particle::UPDATING) {
+            render_particles.push_back(RenderParticle(pos, Vector4(0.8f, 0.1f, 0.2f, 0.5f)));
+        } else if (p.state == Particle::BUFFER) {
+            render_particles.push_back(RenderParticle(pos, Vector4(0.8f, 0.8f, 0.2f, 0.5f)));
         } else {
-            render_particles.push_back(Particle(pos, Vector4(0.8f, 0.9f, 1.0f, 0.5f)));
+            render_particles.push_back(RenderParticle(pos, Vector4(0.8f, 0.9f, 1.0f, 0.5f)));
         }
     }
     return render_particles;
@@ -132,7 +131,7 @@ void MPM<DIM>::resample() {
     real alpha_delta_t = 1;
     if (apic)
         alpha_delta_t = 0;
-    parallel_for_each_active_particle([&](MPM3Particle &p) {
+    parallel_for_each_active_particle([&](Particle &p) {
         real delta_t = base_delta_t * (current_t_int - p.last_update);
         Vector4s v(0.0f), bv(0.0f);
         Matrix3s b(0.0f);
@@ -236,7 +235,7 @@ template <int DIM>
 void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
     {
         Profiler _("calculate force");
-        parallel_for_each_active_particle([&](MPM3Particle &p) {
+        parallel_for_each_active_particle([&](Particle &p) {
             p.calculate_force();
         });
     }
@@ -245,7 +244,7 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
     TC_PROFILE("reset mass", grid_mass.reset(0.0f));
     {
         Profiler _("rasterize velocity, mass, and force");
-        parallel_for_each_active_particle([&](MPM3Particle &p) {
+        parallel_for_each_active_particle([&](Particle &p) {
             TC_MPM3D_PREPROCESS_KERNELS
             const Vector pos = p.pos, v = p.v;
             const real mass = p.mass;
@@ -376,8 +375,8 @@ void MPM<DIM>::grid_apply_boundary_conditions(const DynamicLevelSet3D &levelset,
 
 template <int DIM>
 void MPM<DIM>::particle_collision_resolution(real t) {
-    parallel_for_each_active_particle([&](MPM3Particle &p) {
-        if (p.state == MPM3Particle::UPDATING) {
+    parallel_for_each_active_particle([&](Particle &p) {
+        if (p.state == Particle::UPDATING) {
             p.resolve_collision(levelset, t);
         }
     });
@@ -414,7 +413,7 @@ void MPM<DIM>::substep() {
             scheduler.reset_particle_states();
             old_t_int = current_t_int;
             for (auto &p : particles) {
-                p->state = MPM3Particle::UPDATING;
+                p->state = Particle::UPDATING;
             }
             current_t_int += t_int_increment;
             current_t = current_t_int * base_delta_t;
@@ -436,7 +435,7 @@ void MPM<DIM>::substep() {
         TC_PROFILE("resample", resample());
         if (!async) {
             for (auto &p: particles) {
-                assert_info(p->state == MPM3Particle::UPDATING, "should be updating");
+                assert_info(p->state == Particle::UPDATING, "should be updating");
             }
 #ifdef CV_ON
             for (auto &p: particles) {
@@ -456,8 +455,8 @@ void MPM<DIM>::substep() {
         {
             Profiler _("plasticity");
             // TODO: should this be active particle?
-            parallel_for_each_particle([&](MPM3Particle &p) {
-                if (p.state == MPM3Particle::UPDATING) {
+            parallel_for_each_particle([&](Particle &p) {
+                if (p.state == Particle::UPDATING) {
                     p.pos += (current_t_int - p.last_update) * base_delta_t * p.v;
                     p.last_update = current_t_int;
                     p.pos.x = clamp(p.pos.x, 0.0f, res[0] - eps);
@@ -574,16 +573,16 @@ void MPM<DIM>::synchronize_particles() {
         // During first iteration, clear particles outside before synchronization
         clear_particles_outside();
     }
-    std::vector<std::vector<EPParticle3>> particles_to_send;
+    std::vector<std::vector<EPParticle>> particles_to_send;
     particles_to_send.resize(mpi_world_size);
     for (int i = 0; i < mpi_world_size; i++) {
-        particles_to_send[i] = std::vector<EPParticle3>();
+        particles_to_send[i] = std::vector<EPParticle>();
     }
     // Exchange (a small amount of) particles to other nodes
     for (auto &p: scheduler.get_active_particles()) {
         int belongs_to = scheduler.belongs_to(p);
         if (belongs_to != mpi_world_rank) {
-            particles_to_send[belongs_to].push_back(*(EPParticle3 *)p);
+            particles_to_send[belongs_to].push_back(*(EPParticle *)p);
         }
     }
     P(scheduler.get_active_particles().size());
@@ -595,39 +594,39 @@ void MPM<DIM>::synchronize_particles() {
             int to_send = particles_to_send[i].size();
             MPI_Send(&to_send, 1, MPI_INT, i, TC_MPM_TAG_PARTICLES, MPI_COMM_WORLD);
             if (to_send)
-                MPI_Send(&particles_to_send[i][0], to_send * sizeof(EPParticle3), MPI_CHAR, i,
+                MPI_Send(&particles_to_send[i][0], to_send * sizeof(EPParticle), MPI_CHAR, i,
                          TC_MPM_TAG_PARTICLES,
                          MPI_COMM_WORLD);
             int to_recv;
             MPI_Recv(&to_recv, 1, MPI_INT, i, TC_MPM_TAG_PARTICLES, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            to_receive.resize(to_recv * sizeof(EPParticle3));
+            to_receive.resize(to_recv * sizeof(EPParticle));
             if (to_recv) {
-                MPI_Recv(&to_receive[0], to_recv * sizeof(EPParticle3), MPI_CHAR, i, TC_MPM_TAG_PARTICLES,
+                MPI_Recv(&to_receive[0], to_recv * sizeof(EPParticle), MPI_CHAR, i, TC_MPM_TAG_PARTICLES,
                          MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
         } else if (i > mpi_world_rank) {
             // Receive, and then send
             int to_recv;
             MPI_Recv(&to_recv, 1, MPI_INT, i, TC_MPM_TAG_PARTICLES, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            to_receive.resize(to_recv * sizeof(EPParticle3));
+            to_receive.resize(to_recv * sizeof(EPParticle));
             if (to_recv)
-                MPI_Recv(&to_receive[0], to_recv * sizeof(EPParticle3), MPI_CHAR, i, TC_MPM_TAG_PARTICLES,
+                MPI_Recv(&to_receive[0], to_recv * sizeof(EPParticle), MPI_CHAR, i, TC_MPM_TAG_PARTICLES,
                          MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             int to_send = particles_to_send[i].size();
             MPI_Send(&to_send, 1, MPI_INT, i, TC_MPM_TAG_PARTICLES, MPI_COMM_WORLD);
             if (to_send) {
-                MPI_Send(&particles_to_send[i][0], particles_to_send[i].size() * sizeof(EPParticle3), MPI_CHAR, i,
+                MPI_Send(&particles_to_send[i][0], particles_to_send[i].size() * sizeof(EPParticle), MPI_CHAR, i,
                          TC_MPM_TAG_PARTICLES,
                          MPI_COMM_WORLD);
             }
         }
-        for (int i = 0; i < to_receive.size() / sizeof(EPParticle3); i++) {
-            EPParticle3 *ptr = new EPParticle3(*(EPParticle3 *)&to_receive[i * sizeof(EPParticle3)]);
+        for (int i = 0; i < to_receive.size() / sizeof(EPParticle); i++) {
+            EPParticle *ptr = new EPParticle(*(EPParticle *)&to_receive[i * sizeof(EPParticle)]);
             scheduler.get_active_particles().push_back(ptr);
         }
     }
     for (auto &p: scheduler.get_active_particles()) {
-        p->state = MPM3Particle::UPDATING;
+        p->state = Particle::UPDATING;
         int b = scheduler.belongs_to(p);
         p->color = Vector3(b % 2, b / 2 % 2, b / 4 % 2);
     }
@@ -642,7 +641,7 @@ void MPM<DIM>::synchronize_particles() {
 
 template <int DIM>
 void MPM<DIM>::clear_particles_outside() {
-    std::vector<MPM3Particle *> new_active_particles;
+    std::vector<Particle *> new_active_particles;
     for (auto p: scheduler.get_active_particles()) {
         if (scheduler.belongs_to(p) == mpi_world_rank) {
             new_active_particles.push_back(p);
@@ -681,7 +680,7 @@ bool MPM<DIM>::test() const {
 
 template <int DIM>
 void MPM<DIM>::clear_boundary_particles() {
-    std::vector<MPM3Particle *> particles;
+    std::vector<MPMParticle<DIM> *> particles;
     real bound = 3.0f;
     int deleted = 0;
     for (auto p : scheduler.get_active_particles()) {
