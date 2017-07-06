@@ -98,7 +98,7 @@ public:
     virtual real
     unbiased_sample_attenuation(const Vector3 &start, const Vector3 &end, StateSequence &rand) const override {
         auto dir = normalized(end - start);
-        return sample_free_distance(rand, Ray(start, dir)) >= glm::length(end - start);
+        return sample_free_distance(rand, Ray(start, dir)) >= length(end - start);
     }
 };
 

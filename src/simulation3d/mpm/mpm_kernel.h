@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <taichi/math/math_simd.h>
+#include <taichi/math/linalg.h>
 
 TC_NAMESPACE_BEGIN
 

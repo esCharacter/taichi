@@ -254,7 +254,7 @@ public:
         p.energy = weight * total_emission * delta_t * stefan_boltzmann_constant;
         if (!mesh->const_temp) {
             t.temperature -= p.energy / t.heat_capacity;
-            t.temperature = max(t.temperature, 0.0f);
+            t.temperature = std::max(t.temperature, 0.0f);
         }
     }
 

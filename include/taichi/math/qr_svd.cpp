@@ -145,15 +145,15 @@ void svd(Matrix3 m, Matrix3 &u, Matrix3 &sig, Matrix3 &v) {
 void polar_decomp(Matrix2 A, Matrix2 &r, Matrix2 &s) {
     Matrix2 u, sig, v;
     svd(A, u, sig, v);
-    r = u * glm::transpose(v);
-    s = v * sig * glm::transpose(v);
+    r = u * transposed(v);
+    s = v * sig * transposed(v);
 }
 
 void polar_decomp(Matrix3 A, Matrix3 &r, Matrix3 &s) {
     Matrix3 u, sig, v;
     svd(A, u, sig, v);
-    r = u * glm::transpose(v);
-    s = v * sig * glm::transpose(v);
+    r = u * transposed(v);
+    s = v * sig * transposed(v);
     if (!is_normal(r)) {
         Matrix3 m = A;
         svd(m, u, sig, v);
@@ -164,9 +164,9 @@ void polar_decomp(Matrix3 A, Matrix3 &r, Matrix3 &s) {
         P(v);
         P(r);
         P(s);
-        P(glm::transpose(v));
-        P(u * glm::transpose(v));
-        r = u * glm::transpose(v);
+        P(transposed(v));
+        P(u * transposed(v));
+        r = u * transposed(v);
         P(r);
         printf("Matrix3 m(%.30f,%.30f,%.30f,%.30f,%.30f,%.30f,%.30f,%.30f,%.30f);\n", m[0][0], m[1][0], m[2][0],
                m[0][1],

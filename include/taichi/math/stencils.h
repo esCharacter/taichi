@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <taichi/math/math_util.h>
+#include <taichi/math/math.h>
 #include <taichi/math/linalg.h>
 #include <vector>
 

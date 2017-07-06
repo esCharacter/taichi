@@ -23,6 +23,10 @@ public:
     void initialize(real _t0, real _t1, const LevelSet3D &_ls0, const LevelSet3D &_ls1);
 
     bool inside(const Vector3i pos) const {
+        return levelset0->inside(pos.cast<real>());
+    }
+
+    bool inside(const Vector3 pos) const {
         return levelset0->inside(pos);
     }
 

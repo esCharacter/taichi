@@ -14,7 +14,7 @@
 #include <memory.h>
 #include <string>
 
-#include <taichi/math/math_util.h>
+#include <taichi/math/math.h>
 
 TC_NAMESPACE_BEGIN
 

@@ -19,8 +19,8 @@
 #include <taichi/math/qr_svd.h>
 #include <taichi/system/threading.h>
 #include <taichi/visual/texture.h>
-#include <taichi/math/math_util.h>
-#include <taichi/math/math_simd.h>
+#include <taichi/math/math.h>
+#include <taichi/math/linalg.h>
 #include <taichi/common/asset_manager.h>
 #include <taichi/system/profiler.h>
 #include "mpm_kernel.h"
@@ -81,7 +81,7 @@ void MPM<DIM>::add_particles(const Config &config) {
     for (int i = 0; i < res[0]; i++) {
         for (int j = 0; j < res[1]; j++) {
             for (int k = 0; k < res[2]; k++) {
-                Vector coord = Vector(i + 0.5f, j + 0.5f, k + 0.5f) / Vector(res);
+                Vector coord = Vector(i + 0.5f, j + 0.5f, k + 0.5f) / res.cast<real>();
                 real num = density_texture->sample(coord).x;
                 int t = (int)num + (rand() < num - int(num));
                 for (int l = 0; l < t; l++) {
@@ -134,8 +134,8 @@ void MPM<DIM>::resample() {
     parallel_for_each_active_particle([&](Particle &p) {
         real delta_t = base_delta_t * (current_t_int - p.last_update);
         Vector4s v(0.0f), bv(0.0f);
-        Matrix3s b(0.0f);
-        Matrix3s cdg(0.0f);
+        Matrix b(0.0f);
+        Matrix cdg(0.0f);
         Vector pos = p.pos;
         TC_MPM3D_PREPROCESS_KERNELS
         int x_min = get_stencil_start(pos.x);
@@ -193,19 +193,19 @@ void MPM<DIM>::resample() {
         }
         // cdg = cdg.transposed();
         if (!apic) {
-            b = Matrix3s(0);
+            b = Matrix(0);
         }
         // We should use an std::exp here, but that is too slow...
         real damping = std::max(0.0f, 1.0f - delta_t * affine_damping);
-        p.apic_b = (b * damping).to_mat3();
-        cdg = Matrix3s(1.0f) + delta_t * cdg;
+        p.apic_b = Matrix(b * damping);
+        cdg = Matrix(1.0f) + delta_t * cdg;
 #ifdef TC_MPM_WITH_FLIP
         // APIC part + FLIP part
         p.v = (1 - alpha_delta_t) * v + alpha_delta_t * (v - bv + p.v);
 #else
         p.v = v.to_vec3();
 #endif
-        Matrix3s dg = cdg * Matrix3s(p.dg_e) * Matrix3s(p.dg_p);
+        Matrix3s dg = cdg * p.dg_e * Matrix3s(p.dg_p);
 #ifdef CV_ON
         if (abnormal(dg) || abnormal(cdg) || abnormal(p.dg_e) || abnormal(p.dg_cache)) {
             P(dg);
@@ -216,8 +216,8 @@ void MPM<DIM>::resample() {
             error("");
         }
 #endif
-        p.dg_e = (cdg * Matrix3s(p.dg_e)).to_mat3();
-        p.dg_cache = dg.to_mat3();
+        p.dg_e = cdg * p.dg_e;
+        p.dg_cache = dg;
 #ifdef CV_ON
         if (abnormal(dg) || abnormal(cdg) || abnormal(p.dg_e) || abnormal(p.dg_cache)) {
             P(dg);
@@ -250,7 +250,7 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
             const real mass = p.mass;
             // We enlarge Matrix 3x3 to Matrix 4x4 for SIMD.
             // It is, however, better to use Matrix 4x3 in the future.
-            const Matrix4s apic_b_inv_d_mass = Matrix4s(p.apic_b) * ((6.0f - kernel_size) * mass);
+            const Matrix4s apic_b_inv_d_mass = Matrix4(p.apic_b) * ((6.0f - kernel_size) * mass);
             const Vector4s mass_v = mass * v;
             Matrix4s apic_b_inv_d_mass_with_mass_v = apic_b_inv_d_mass;
             apic_b_inv_d_mass_with_mass_v[3] = mass_v;
@@ -264,7 +264,7 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
             //       0             mass
             // ----------------------------
 
-            const Matrix4s delta_t_tmp_force = delta_t * Matrix4s(p.tmp_force);
+            const Matrix4s delta_t_tmp_force = delta_t * Matrix4(p.tmp_force);
             int x_min = get_stencil_start(pos.x);
             int y_min = get_stencil_start(pos.y);
             int z_min = get_stencil_start(pos.z);
@@ -353,20 +353,20 @@ void MPM<DIM>::grid_apply_boundary_conditions(const DynamicLevelSet3D &levelset,
         Vector boundary_velocity = levelset.get_temporal_derivative(pos, t) * n;
         Vector v = grid_velocity[ind] - boundary_velocity;
         if (phi > 0) { // 0~1
-            real pressure = std::max(-glm::dot(v, n), 0.0f);
+            real pressure = std::max(-dot(v, n), 0.0f);
             real mu = levelset.levelset0->friction;
             if (mu < 0) { // sticky
                 v = Vector(0.0f);
             } else {
-                Vector t = v - n * glm::dot(v, n);
+                Vector t = v - n * dot(v, n);
                 if (length(t) > 1e-6f) {
                     t = normalize(t);
                 }
-                real friction = -clamp(glm::dot(t, v), -mu * pressure, mu * pressure);
+                real friction = -clamp(dot(t, v), -mu * pressure, mu * pressure);
                 v = v + n * pressure + t * friction;
             }
         } else if (phi < 0.0f) {
-            v = n * std::max(0.0f, glm::dot(v, n));
+            v = n * std::max(0.0f, dot(v, n));
         }
         v += boundary_velocity;
         grid_velocity[ind] = v;
@@ -661,6 +661,7 @@ void MPM<DIM>::finalize() {
 
 template <int DIM>
 bool MPM<DIM>::test() const {
+    /*
     for (int i = 0; i < 100000; i++) {
         Matrix3 m(1.000000238418579101562500000000, -0.000000000000000000000000000000,
                   -0.000000000000000000000220735070, 0.000000000000000000000000000000, 1.000000238418579101562500000000,
@@ -675,6 +676,7 @@ bool MPM<DIM>::test() const {
             P(v);
         }
     }
+    */
     return false;
 }
 

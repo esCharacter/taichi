@@ -31,9 +31,9 @@ public:
         alpha = config.get("alpha", 1.0f);
         light_direction = normalized(light_direction);
         Vector3 u = abs(light_direction.y) > 0.99f ? Vector3(1, 0, 0) :
-            normalized(glm::cross(light_direction, Vector3(0, 1, 0)));
-        Vector3 v = normalized(glm::cross(u, light_direction));
-        light_transform = glm::transpose(Matrix3(u, v, light_direction));
+            normalized(cross(light_direction, Vector3(0, 1, 0)));
+        Vector3 v = normalized(cross(u, light_direction));
+        light_transform = transposed(Matrix3(u, v, light_direction));
     }
 
     virtual void render(Array2D<Vector3> &buffer, const std::vector<RenderParticle> &particles) const override {
@@ -45,7 +45,7 @@ public:
 
         std::vector <std::pair<real, int>> indices(particles.size());
         for (int i = 0; i < (int)indices.size(); i++) {
-            indices[i] = std::make_pair(-glm::dot(light_direction, particles[i].position), i);
+            indices[i] = std::make_pair(-dot(light_direction, particles[i].position), i);
             Vector3 transformed_coord = light_transform * particles[i].position;
             Vector2 uv(transformed_coord.x, transformed_coord.y);
             uv_lowerbound.x = std::min(uv_lowerbound.x, uv.x);
@@ -75,14 +75,14 @@ public:
         }
 
         for (int i = 0; i < (int)indices.size(); i++) {
-            real dist = -glm::dot(camera->get_dir(), particles[i].position - camera->get_origin());
+            real dist = -dot(camera->get_dir(), particles[i].position - camera->get_origin());
             indices[i] = std::make_pair(dist, i);
         }
         std::sort(indices.begin(), indices.end());
         for (int i = 0; i < (int)indices.size(); i++) {
             const int index = indices[i].second;
             auto &p = particles[index];
-            real dist = -glm::dot(camera->get_dir(), particles[index].position - camera->get_origin());
+            real dist = -dot(camera->get_dir(), particles[index].position - camera->get_origin());
             if (dist >= 0) {
                 continue;
             }

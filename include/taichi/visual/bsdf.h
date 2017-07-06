@@ -62,7 +62,7 @@ public:
     }
 
     bool is_entering(const Vector3 &in_dir) const {
-        return bool((!front) ^ (glm::dot(geometry_normal, in_dir) > 0));
+        return bool((!front) ^ (dot(geometry_normal, in_dir) > 0));
     }
 
     bool is_leaving(const Vector3 &in_dir) const {

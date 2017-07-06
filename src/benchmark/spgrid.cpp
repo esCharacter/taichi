@@ -37,7 +37,7 @@
 // let's support Unix-like (Linux and OS X) first.
 
 #include <taichi/system/benchmark.h>
-#include <taichi/math/math_simd.h>
+#include <taichi/math/linalg.h>
 #include <sys/mman.h>
 #include <unistd.h>
 

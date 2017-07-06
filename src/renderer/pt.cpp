@@ -441,7 +441,7 @@ Vector3 PathTracingRenderer::trace(Ray ray, StateSequence &rand) {
                 }
             }
             out_ray = Ray(info.pos + out_dir * 1e-4f, out_dir, 1e-5f);
-            real c = abs(glm::dot(out_dir, info.normal));
+            real c = abs(dot(out_dir, info.normal));
             if (pdf < 1e-10f) {
                 break;
             }
@@ -564,7 +564,7 @@ protected:
         u = normalized(cross(v, inter.normal));
 
         inter.to_world = Matrix3(u, v, inter.normal);
-        inter.to_local = glm::transpose(inter.to_world);
+        inter.to_local = transpose(inter.to_world);
 
         inter.material = material.get();
 
@@ -614,7 +614,7 @@ protected:
             }
 
             out_ray = Ray(info.pos + out_dir * 1e-4f, out_dir, 1e-5f);
-            real c = abs(glm::dot(out_dir, info.normal));
+            real c = abs(dot(out_dir, info.normal));
             if (pdf < 1e-10f) {
                 break;
             }

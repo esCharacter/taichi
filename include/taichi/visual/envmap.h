@@ -12,7 +12,7 @@
 #include <taichi/common/meta.h>
 #include <taichi/common/meta.h>
 #include <taichi/math/linalg.h>
-#include <taichi/math/math_util.h>
+#include <taichi/math/math.h>
 #include <taichi/visual/sampler.h>
 #include <taichi/math/discrete_sampler.h>
 #include <taichi/visualization/image_buffer.h>
@@ -27,7 +27,7 @@ public:
 
     virtual void set_transform(Matrix4 transform) {
         this->local2world = transform;
-        this->world2local = glm::inverse(transform);
+        this->world2local = inversed(transform);
     }
 
     virtual Vector3 sample_direction(StateSequence &rand, real &pdf, Vector3 &illum) const;

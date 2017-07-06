@@ -157,7 +157,7 @@ void LevelSet<DIM>::add_plane(const Vector3 &normal, real d) {
     real coeff = 1.0f / length(normal);
     for (auto &ind : get_region()) {
         Vector sample = ind.get_pos();
-        real dist = (glm::dot(sample, normal) + d) * coeff;
+        real dist = (dot(sample, normal) + d) * coeff;
         set(ind, std::min(Array3D<real>::get(ind), dist));
     }
 }

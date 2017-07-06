@@ -133,7 +133,7 @@ IntersectionInfo Scene::get_intersection_info(int triangle_id, Ray &ray) {
     // TODO: ...
     u = normalized(cross(v, inter.normal));
     inter.to_world = Matrix3(u, v, inter.normal);
-    inter.to_local = glm::transpose(inter.to_world);
+    inter.to_local = transposed(inter.to_world);
     return inter;
 }
 

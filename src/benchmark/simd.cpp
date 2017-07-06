@@ -8,7 +8,7 @@
 *******************************************************************************/
 
 #include <taichi/system/benchmark.h>
-#include <taichi/math/math_simd.h>
+#include <taichi/math/linalg.h>
 
 TC_NAMESPACE_BEGIN
 
@@ -52,7 +52,7 @@ protected:
             for (int i = 0; i < workload; i++) {
                 ret += M * input[i];
             }
-            dummy = (int)(glm::length(ret));
+            dummy = (int)(length(ret));
         }
     }
 

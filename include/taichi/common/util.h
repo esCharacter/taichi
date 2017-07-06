@@ -70,6 +70,7 @@ typedef unsigned long long uint64;
 #endif
 typedef float float32;
 typedef double float64;
+typedef float real;
 
 // Check for inf, nan?
 // #define CV_ON

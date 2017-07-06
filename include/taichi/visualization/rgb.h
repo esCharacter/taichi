@@ -12,7 +12,7 @@
 #include <glm/glm.hpp>
 
 #include <taichi/common/util.h>
-#include <taichi/math/math_util.h>
+#include <taichi/math/math.h>
 
 TC_NAMESPACE_BEGIN
 #undef RGB
@@ -27,8 +27,8 @@ public:
 
     RGB(real r, real g, real b) : r(r), g(g), b(b) { }
 
-    operator glm::vec3() {
-        return glm::vec3(r / 255.0f, g / 255.0f, b / 255.0f);
+    operator Vector3() {
+        return Vector3(r / 255.0f, g / 255.0f, b / 255.0f);
     }
 
     void append_to_string(std::string &str) {

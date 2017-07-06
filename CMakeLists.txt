@@ -3,7 +3,7 @@ project(taichi)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build")
 
-message("Using c++ compiler: " ${CMAKE_CXX_COMPILER})
+message("Using C++ compiler: " ${CMAKE_CXX_COMPILER})
 
 if (MINGW)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_hypot=hypot")

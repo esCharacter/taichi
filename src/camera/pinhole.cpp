@@ -42,7 +42,7 @@ public:
     }
 
     void get_pixel_coordinate(Vector3 ray_dir, real &u, real &v) override {
-        auto inv_transform = glm::inverse(transform);
+        auto inv_transform = inversed(transform);
         auto local_ray_dir = multiply_matrix4(inv_transform, ray_dir, 0);
         u = dot(local_ray_dir, right) / dot(local_ray_dir, dir) / tan_half_fov / aspect_ratio + 0.5f;
         v = dot(local_ray_dir, up) / dot(local_ray_dir, dir) / tan_half_fov + 0.5f;

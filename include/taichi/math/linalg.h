@@ -1,7 +1,8 @@
 /*******************************************************************************
     Taichi - Physically based Computer Graphics Library
 
-    Copyright (c) 2016 Yuanming Hu <yuanmhu@gmail.com>
+    Copyright (c) 2017 Yuanming Hu <yuanmhu@gmail.com>
+                  2017 Yu Fang <squarefk@gmail.com>
 
     All rights reserved. Use of this source code is governed by
     the MIT license as written in the LICENSE file.
@@ -9,293 +10,983 @@
 
 #pragma once
 
-#include <vector>
-#include <taichi/math/math_util.h>
+#include <cmath>
 #include <taichi/common/util.h>
-#include <string>
 
 TC_NAMESPACE_BEGIN
+// >= AVX 2
+#include <immintrin.h>
 
-inline Vector3 cross(const Vector3 &a, const Vector3 &b) {
-    return glm::cross(a, b);
+#ifdef _WIN64
+#define TC_ALIGNED(x) __declspec(align(x))
+#else
+#define TC_ALIGNED(x) __attribute__((aligned(x)))
+#endif
+
+enum class InstructionSet {
+    None,
+    AVX,
+    AVX2
+};
+
+const InstructionSet default_instruction_set = InstructionSet::AVX;
+
+template <int DIM, typename T, InstructionSet ISA>
+struct VectorNDBase {
+    T d[DIM];
+};
+
+template <typename T, InstructionSet ISA>
+struct VectorNDBase<1, T, ISA> {
+    union {
+        T d[1];
+        struct {
+            T x;
+        };
+    };
+};
+
+template <typename T, InstructionSet ISA>
+struct VectorNDBase<2, T, ISA> {
+    union {
+        T d[2];
+        struct {
+            T x, y;
+        };
+    };
+};
+
+template <typename T, InstructionSet ISA>
+struct VectorNDBase<3, T, ISA> {
+    union {
+        T d[3];
+        struct {
+            T x, y, z;
+        };
+    };
+};
+
+template <typename T, InstructionSet ISA>
+struct VectorNDBase<4, T, ISA> {
+    union {
+        T d[4];
+        struct {
+            T x, y, z, w;
+        };
+    };
+};
+
+template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
+struct VectorND : public VectorNDBase<DIM, T, ISA> {
+    VectorND() {
+        for (int i = 0; i < DIM; i++) {
+            this->d[i] = T(0);
+        }
+    }
+
+    VectorND(T v) {
+        for (int i = 0; i < DIM; i++) {
+            this->d[i] = v;
+        }
+    }
+
+    VectorND(T v0, T v1) {
+        static_assert(DIM == 2, "Vector dim must be 2");
+        this->d[0] = v0;
+        this->d[1] = v1;
+    }
+
+    VectorND(T v0, T v1, T v2) {
+        static_assert(DIM == 3, "Vector dim must be 3");
+        this->d[0] = v0;
+        this->d[1] = v1;
+        this->d[2] = v2;
+    }
+
+    VectorND(T v0, T v1, T v2, T v3) {
+        static_assert(DIM == 4, "Vector dim must be 4");
+        this->d[0] = v0;
+        this->d[1] = v1;
+        this->d[2] = v2;
+        this->d[3] = v3;
+    }
+
+    T &operator[](int i) { return this->d[i]; }
+
+    const T &operator[](int i) const { return this->d[i]; }
+
+    static T dot(VectorND<DIM, T, ISA> row, VectorND<DIM, T, ISA> column) {
+        T ret = T(0);
+        for (int i = 0; i < DIM; i++)
+            ret += row[i] * column[i];
+        return ret;
+    }
+
+    VectorND &operator=(const VectorND o) {
+        for (int i = 0; i < DIM; i++) {
+            this->d[i] = o[i];
+        }
+        return *this;
+    }
+
+    VectorND operator+(const VectorND &o) const {
+        VectorND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = this->d[i] + o[i];
+        }
+        return ret;
+    }
+
+    VectorND operator-(const VectorND &o) const {
+        VectorND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = this->d[i] - o[i];
+        }
+        return ret;
+    }
+
+    VectorND operator*(const VectorND &o) const {
+        VectorND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = this->d[i] * o[i];
+        }
+        return ret;
+    }
+
+    VectorND operator/(const VectorND &o) const {
+        VectorND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = this->d[i] / o[i];
+        }
+        return ret;
+    }
+
+    VectorND operator-() const {
+        VectorND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = -this->d[i];
+        }
+        return ret;
+    }
+
+    VectorND &operator+=(const VectorND &o) {
+        for (int i = 0; i < DIM; i++) {
+            this->d[i] += o[i];
+        };
+        return *this;
+    }
+
+    VectorND &operator-=(const VectorND &o) {
+        for (int i = 0; i < DIM; i++) {
+            this->d[i] -= o[i];
+        };
+        return *this;
+    }
+
+    VectorND &operator*=(const VectorND &o) {
+        for (int i = 0; i < DIM; i++) {
+            this->d[i] *= o[i];
+        };
+        return *this;
+    }
+
+    VectorND &operator/=(const VectorND &o) {
+        for (int i = 0; i < DIM; i++) {
+            this->d[i] /= o[i];
+        };
+        return *this;
+    }
+
+    bool operator==(const VectorND &o) const {
+        for (int i = 0; i < DIM; i++)
+            if (this->d[i] != o[i]) return false;
+        return true;
+    }
+
+    bool operator!=(const VectorND &o) const {
+        for (int i = 0; i < DIM; i++)
+            if (this->d[i] != o[i]) return true;
+        return false;
+    }
+
+    VectorND abs() const {
+        VectorND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = std::abs(this->d[i]);
+        }
+        return ret;
+    }
+
+    T max() const {
+        T ret = this->d[0];
+        for (int i = 1; i < DIM; i++) {
+            ret = std::max(ret, this->d[i]);
+        }
+        return ret;
+    }
+
+    T length2() const {
+        T ret = 0;
+        for (int i = 0; i < DIM; i++) {
+            ret += this->d[i] * this->d[i];
+        }
+        return ret;
+    }
+
+    real length() const {
+        return std::sqrt(length2());
+    }
+
+    template <typename G>
+    VectorND<DIM, G, ISA> cast() const {
+        VectorND<DIM, G, ISA> ret;
+        for (int i = 0; i < DIM; i++)
+            ret[i] = static_cast<G>(this->d[i]);
+        return ret;
+    }
+};
+
+
+template <int DIM, typename T, InstructionSet ISA>
+VectorND<DIM, T, ISA> operator*(T a, const VectorND<DIM, T, ISA> &v) {
+    return VectorND<DIM, T, ISA>(a) * v;
 }
 
-inline real dot(const Vector3 &a, const Vector3 &b) {
-    return glm::dot(a, b);
+template <int DIM, typename T, InstructionSet ISA>
+VectorND<DIM, T, ISA> operator*(const VectorND<DIM, T, ISA> &v, T a) {
+    return a * v;
 }
 
-inline real length(const Vector3 &a, const Vector3 &b) {
-    return sqrt(dot(a, b));
+using Vector2 = VectorND<2, real, InstructionSet::AVX>;
+using Vector3 = VectorND<3, real, InstructionSet::AVX>;
+using Vector4 = VectorND<4, real, InstructionSet::AVX>;
+
+template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
+struct MatrixND {
+    using Vector = VectorND<DIM, T, ISA>;
+    Vector d[DIM];
+
+    template<int DIM1, typename T1, InstructionSet ISA1>
+    MatrixND(const MatrixND<DIM1, T1, ISA1> &o) {
+        (*this) = T(0);
+        for (int i = 0; i < DIM1; i++) {
+            for (int j = 0; j < DIM1; j++) {
+                d[i][j] = o[i][j];
+            }
+        }
+    }
+
+    MatrixND() {
+        for (int i = 0; i < DIM; i++) {
+            d[i] = VectorND<DIM, T, ISA>();
+        }
+    }
+
+    MatrixND(T v) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] = VectorND<DIM, T, ISA>();
+        }
+        for (int i = 0; i < DIM; i++) {
+            d[i][i] = v;
+        }
+    }
+
+    // Diag
+    MatrixND(Vector v) {
+        for (int i = 0; i < DIM; i++) {
+            this->d[i][i] = v[i];
+        }
+    }
+
+    MatrixND(Vector v0, Vector v1) {
+        static_assert(DIM == 2, "Matrix dim must be 2");
+        this->d[0] = v0;
+        this->d[1] = v1;
+    }
+
+    MatrixND(Vector v0, Vector v1, Vector v2) {
+        static_assert(DIM == 3, "Matrix dim must be 3");
+        this->d[0] = v0;
+        this->d[1] = v1;
+        this->d[2] = v2;
+    }
+
+    MatrixND(Vector v0, Vector v1, Vector v2, Vector v3) {
+        static_assert(DIM == 4, "Matrix dim must be 4");
+        this->d[0] = v0;
+        this->d[1] = v1;
+        this->d[2] = v2;
+        this->d[3] = v3;
+    }
+
+    MatrixND &operator=(const MatrixND &m) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] = m[i];
+        }
+        return *this;
+    }
+
+    MatrixND(const MatrixND &o) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] = o[i];
+        }
+    }
+
+    VectorND<DIM, T, ISA> &operator[](int i) {
+        return d[i];
+    }
+
+    const VectorND<DIM, T, ISA> &operator[](int i) const {
+        return d[i];
+    }
+
+    VectorND<DIM, T, ISA> operator*(const VectorND<DIM, T, ISA> &o) const {
+        VectorND<DIM, T, ISA> ret;
+        for (int i = 0; i < DIM; i++)
+            for (int j = 0; j < DIM; j++) {
+                ret[i] += d[j][i] * o[j];
+            }
+        return ret;
+    }
+
+    MatrixND operator*(const MatrixND &o) const {
+        MatrixND ret;
+        for (int i = 0; i < DIM; i++)
+            for (int j = 0; j < DIM; j++)
+                for (int k = 0; k < DIM; k++) {
+                    ret[j][i] += d[k][i] * o[j][k];
+                }
+        return ret;
+    }
+
+    static MatrixND outer_product(VectorND<DIM, T, ISA> row, VectorND<DIM, T, ISA> column) {
+        MatrixND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = column * row[i];
+        }
+        return ret;
+    }
+
+    MatrixND operator+(const MatrixND &o) const {
+        MatrixND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = d[i] + o[i];
+        }
+        return ret;
+    }
+
+    MatrixND &operator+=(const MatrixND &o) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] += o[i];
+        }
+        return *this;
+    }
+
+    MatrixND &operator-=(const MatrixND &o) {
+        for (int i = 0; i < DIM; i++) {
+            d[i] -= o[i];
+        }
+        return *this;
+    }
+
+    MatrixND operator-(const MatrixND &o) const {
+        MatrixND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = -d[i];
+        }
+        return ret;
+    }
+
+    bool operator==(const MatrixND &o) const {
+        for (int i = 0; i < DIM; i++)
+            for (int j = 0; j < DIM; j++)
+                if (d[i][j] != o[i][j]) return false;
+        return true;
+    }
+
+    bool operator!=(const MatrixND &o) const {
+        for (int i = 0; i < DIM; i++)
+            for (int j = 0; j < DIM; j++)
+                if (d[i][j] != o[i][j]) return true;
+        return false;
+    }
+
+    T frobenius_norm2() const {
+        return d[0].length2() + d[1].length2() + d[2].length2();
+    }
+
+    real frobenius_norm() const {
+        return std::sqrt(frobenius_norm2());
+    }
+
+    MatrixND transposed() const {
+        MatrixND ret;
+        for (int i = 0; i < DIM; i++)
+            for (int j = 0; j < DIM; j++) {
+                ret[i][j] = d[j][i];
+            }
+        return ret;
+    }
+
+    template <typename G>
+    MatrixND<DIM, G, ISA> cast() const {
+        MatrixND <DIM, G, ISA> ret;
+        for (int i = 0; i < DIM; i++)
+            for (int j = 0; j < DIM; j++)
+                ret[i][j] = static_cast<G>(d[i][j]);
+        return ret;
+    }
+};
+
+template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
+MatrixND<DIM, T, ISA> operator*(const float a, const MatrixND<DIM, T, ISA> &M) {
+    MatrixND <DIM, T, ISA> ret;
+    for (int i = 0; i < DIM; i++) {
+        ret[i] = a * M[i];
+    }
+    return ret;
 }
 
-inline Vector3 normalize(const Vector3 &a) {
-    return glm::normalize(a);
+template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
+MatrixND<DIM, T, ISA> operator*(const MatrixND<DIM, T, ISA> &M, const float a) {
+    return a * M;
 }
 
-inline Vector3 normalized(const Vector3 &a) {
+// SIMD Vector4
+template <>
+struct TC_ALIGNED(16) VectorND<4, float32, InstructionSet::AVX> {
+    using Vector4s = VectorND<4, float32, InstructionSet::AVX>;
+
+    union {
+        __m128 v;
+        struct {
+            float x, y, z, w;
+        };
+    };
+
+    VectorND() : VectorND(0.0f) {};
+
+    VectorND(const Vector3 &vec, float w = 0.0f) : VectorND(vec[0], vec[1], vec[2], w) {}
+
+    VectorND(real x, real y, real z, real w = 0.0f) : v(_mm_set_ps(w, z, y, x)) {}
+
+    VectorND(real x) : v(_mm_set1_ps(x)) {}
+
+    VectorND(__m128 v) : v(v) {}
+
+    float &operator[](int i) { return (&x)[i]; }
+
+    const float &operator[](int i) const { return (&x)[i]; }
+
+    operator __m128() const { return v; }
+
+    operator __m128i() const { return _mm_castps_si128(v); }
+
+    operator __m128d() const { return _mm_castps_pd(v); }
+
+    Vector4s &operator=(const Vector4s &o) {
+        v = o.v;
+        return *this;
+    }
+
+    Vector4s operator+(const Vector4s &o) const { return _mm_add_ps(v, o.v); }
+
+    Vector4s operator-(const Vector4s &o) const { return _mm_sub_ps(v, o.v); }
+
+    Vector4s operator*(const Vector4s &o) const { return _mm_mul_ps(v, o.v); }
+
+    Vector4s operator/(const Vector4s &o) const { return _mm_div_ps(v, o.v); }
+
+    Vector4s operator-() const { return _mm_sub_ps(Vector4s(0.0f), v); }
+
+    Vector4s &operator+=(const Vector4s &o) {
+        (*this) = (*this) + o;
+        return *this;
+    }
+
+    Vector4s &operator-=(const Vector4s &o) {
+        (*this) = (*this) - o;
+        return *this;
+    }
+
+    Vector4s &operator*=(const Vector4s &o) {
+        (*this) = (*this) * o;
+        return *this;
+    }
+
+    Vector4s &operator/=(const Vector4s &o) {
+        (*this) = (*this) / o;
+        return *this;
+    }
+
+    Vector3 to_vec3() const {
+        return Vector3(x, y, z);
+    }
+
+    template <int a, int b, int c, int d>
+    Vector4s permute() const {
+        return _mm_permute_ps(v, _MM_SHUFFLE(a, b, c, d));
+    }
+
+    template <int a>
+    Vector4s broadcast() const {
+        return permute<a, a, a, a>();
+    }
+
+    // TODO: vectorize ?
+    Vector4s abs() const {
+        return Vector4s(
+                std::abs(x),
+                std::abs(y),
+                std::abs(z),
+                std::abs(w)
+        );
+    }
+
+    Vector4s max() const {
+        return std::max(std::max(v[0], v[1]), std::max(v[2], v[3]));
+    }
+
+    float length2() const {
+        return _mm_cvtss_f32(_mm_dp_ps(v, v, 0xf1));
+    }
+
+    float length() const {
+        return std::sqrt(length2());
+    }
+};
+
+typedef VectorND<4, float32, InstructionSet::AVX> Vector4s;
+
+// FMA: a * b + c
+inline Vector4s fused_mul_add(const Vector4s &a, const Vector4s &b, const Vector4s &c) {
+    return _mm_fmadd_ps(a, b, c);
+}
+
+inline Vector4s operator*(float a, const Vector4s &vec) {
+    return Vector4s(a) * vec;
+}
+
+inline void transpose4x4(const Vector4s m[], Vector4s t[]) {
+    Vector4s t0 = _mm_unpacklo_ps(m[0], m[1]);
+    Vector4s t2 = _mm_unpacklo_ps(m[2], m[3]);
+    Vector4s t1 = _mm_unpackhi_ps(m[0], m[1]);
+    Vector4s t3 = _mm_unpackhi_ps(m[2], m[3]);
+    t[0] = _mm_movelh_ps(t0, t2);
+    t[1] = _mm_movehl_ps(t2, t0);
+    t[2] = _mm_movelh_ps(t1, t3);
+    t[3] = _mm_movehl_ps(t3, t1);
+}
+
+// SIMD Matrix4
+template <>
+struct TC_ALIGNED(16) MatrixND<4, float32, InstructionSet::AVX> {
+    using Vector = VectorND<4, float32, InstructionSet::AVX>;
+    using Matrix4s = MatrixND<4, float32, InstructionSet::AVX>;
+    union {
+        // Four columns, instead of rows!
+        Vector4s v[4];
+    };
+
+    MatrixND() {
+        v[0] = 0.0f;
+        v[1] = 0.0f;
+        v[2] = 0.0f;
+        v[3] = 0.0f;
+    }
+
+    MatrixND(float32 val) {
+        for (int i = 0; i < 4; i++) {
+            v[i] = Vector();
+        }
+        for (int i = 0; i < 4; i++) {
+            v[i][i] = val;
+        }
+    }
+
+    // Diag
+    MatrixND(Vector diag) {
+        for (int i = 0; i < 4; i++) {
+            this->v[i][i] = diag[i];
+        }
+    }
+
+    MatrixND(Vector v0, Vector v1, Vector v2, Vector v3) : v{v0, v1, v2, v3} {}
+
+    template<int DIM1, typename T1, InstructionSet ISA1>
+    MatrixND(const MatrixND<DIM1, T1, ISA1> &o) {
+        for (int i = 0; i < DIM1; i++) {
+            for (int j = 0; j < DIM1; j++) {
+                v[i][j] = o[i][j];
+            }
+            for (int j = DIM1; j < 4; j++) {
+                v[i][j] = 0;
+            }
+        }
+        for (int i = DIM1; i < 4; i++) {
+            v[i] = 0;
+        }
+    }
+
+    MatrixND &operator=(const MatrixND &m) {
+        for (int i = 0; i < 4; i++) {
+            v[i] = m[i];
+        }
+        return *this;
+    }
+
+    Vector4s &operator[](int i) { return v[i]; }
+
+    const Vector4s &operator[](int i) const { return v[i]; }
+
+    Vector4s operator*(const Vector4s &o) const {
+        Vector4s ret = o.broadcast<3>() * v[3];
+        ret = fused_mul_add(v[2], o.broadcast<2>(), ret);
+        ret = fused_mul_add(v[1], o.broadcast<1>(), ret);
+        ret = fused_mul_add(v[0], o.broadcast<0>(), ret);
+        return ret;
+    }
+
+    Vector4s multiply_vec3(const Vector4s &o) const {
+        Vector4s ret = o.broadcast<2>() * v[2];
+        ret = fused_mul_add(v[1], o.broadcast<1>(), ret);
+        ret = fused_mul_add(v[0], o.broadcast<0>(), ret);
+        return ret;
+    }
+
+    MatrixND transposed() const {
+        MatrixND ret;
+        transpose4x4(v, ret.v);
+        return ret;
+    }
+};
+
+using Matrix4s = MatrixND<4, float32, InstructionSet::AVX>;
+
+inline Matrix4s operator*(const float a, const Matrix4s &M) {
+    Matrix4s ret;
+    ret[0] = a * M[0];
+    ret[1] = a * M[1];
+    ret[2] = a * M[2];
+    ret[3] = a * M[3];
+    return ret;
+}
+
+inline Matrix4s operator*(const Matrix4s &m, const float a) {
+    return a * m;
+}
+
+template <int DIM, typename T, InstructionSet ISA>
+inline void print(const VectorND<DIM, T, ISA> &v) {
+    std::cout << std::endl;
+    for (int i = 0; i < DIM; i++) {
+        std::cout << v[i] << " ";
+    }
+    std::cout << std::endl;
+}
+
+template <int DIM, typename T, InstructionSet ISA>
+inline void print(const MatrixND<DIM, T, ISA> &v) {
+    std::cout << std::endl;
+    for (int i = 0; i < DIM; i++) {
+        for (int j = 0; j < DIM; j++) {
+            std::cout << v[j][i] << " ";
+        }
+        std::cout << std::endl;
+    }
+}
+
+// SIMD Matrix3
+template <>
+struct TC_ALIGNED(16) MatrixND<3, float32, InstructionSet::AVX> {
+    using Matrix3s = MatrixND<3, float32, InstructionSet::AVX>;
+    union {
+        // Three columns, instead of rows!
+        Vector4s v[3];
+    };
+
+    MatrixND() {
+        v[0] = 0.0f;
+        v[1] = 0.0f;
+        v[2] = 0.0f;
+    }
+
+    template<int DIM1, typename T1, InstructionSet ISA1>
+    MatrixND(const MatrixND<DIM1, T1, ISA1> &o) {
+        for (int i = 0; i < DIM1; i++) {
+            for (int j = 0; j < DIM1; j++) {
+                v[i][j] = o[i][j];
+            }
+            for (int j = DIM1; j < 3; j++) {
+                v[i][j] = 0;
+            }
+        }
+        for (int i = DIM1; i < 3; i++) {
+            v[i] = 0;
+        }
+    }
+
+    MatrixND &operator=(const Matrix3s &m) {
+        v[0] = m.v[0];
+        v[1] = m.v[1];
+        v[2] = m.v[2];
+        return *this;
+    }
+
+    MatrixND(float diag) {
+        v[0] = Vector4s(diag, 0.0f, 0.0f, 0.0f);
+        v[1] = Vector4s(0.0f, diag, 0.0f, 0.0f);
+        v[2] = Vector4s(0.0f, 0.0f, diag, 0.0f);
+    }
+
+    MatrixND(float32 diag0, float32 diag1, float32 diag2) {
+        v[0] = Vector4s(diag0, 0.0f, 0.0f, 0.0f);
+        v[1] = Vector4s(0.0f, diag1, 0.0f, 0.0f);
+        v[2] = Vector4s(0.0f, 0.0f, diag2, 0.0f);
+    }
+
+    MatrixND(Vector4s v0, Vector4s v1, Vector4s v2) : v{v0, v1, v2} {}
+
+    MatrixND(const MatrixND<3, real, InstructionSet::None> &o) {
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                v[i][j] = o[i][j];
+            }
+        }
+    }
+
+    Vector4s &operator[](int i) { return v[i]; }
+
+    const Vector4s &operator[](int i) const { return v[i]; }
+
+    Vector4s operator*(const Vector4s &o) const {
+        Vector4s ret = o.broadcast<2>() * v[2];
+        ret = fused_mul_add(v[1], o.broadcast<1>(), ret);
+        ret = fused_mul_add(v[0], o.broadcast<0>(), ret);
+        return ret;
+    }
+
+    Matrix3s operator*(const Matrix3s &o) const {
+        Matrix3s ret;
+        ret[0] = (*this) * o.v[0];
+        ret[1] = (*this) * o.v[1];
+        ret[2] = (*this) * o.v[2];
+        return ret;
+    }
+
+    static Matrix3s outer_product(Vector4s row, Vector4s column) {
+        Matrix3s ret;
+        ret[0] = column * row[0];
+        ret[1] = column * row[1];
+        ret[2] = column * row[2];
+        return ret;
+    }
+
+    Matrix3s operator+(const Matrix3s &o) const {
+        return Matrix3s(v[0] + o[0], v[1] + o[1], v[2] + o[2]);
+    }
+
+    Matrix3s &operator+=(const Matrix3s &o) {
+        v[0] += o[0];
+        v[1] += o[1];
+        v[2] += o[2];
+        return *this;
+    }
+
+    Matrix3s &operator-=(const Matrix3s &o) {
+        v[0] -= o[0];
+        v[1] -= o[1];
+        v[2] -= o[2];
+        return *this;
+    }
+
+    Matrix3s operator-(const Matrix3s &o) const {
+        return Matrix3s(v[0] - o[0], v[1] - o[1], v[2] - o[2]);
+    }
+
+    float32 frobenius_norm2() const {
+        return v[0].length2() + v[1].length2() + v[2].length2();
+    }
+
+    float32 frobenius_norm() const {
+        return std::sqrt(frobenius_norm2());
+    }
+
+    Matrix3s transposed() const {
+        Matrix3s ret;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j <= i; j++) {
+                ret[i][j] = v[j][i];
+                ret[j][i] = v[i][j];
+            }
+        }
+        return ret;
+    }
+};
+
+using Matrix3s = MatrixND<3, float32, InstructionSet::AVX>;
+
+inline Matrix3s operator*(const float a, const Matrix3s &M) {
+    Matrix3s ret;
+    ret[0] = a * M[0];
+    ret[1] = a * M[1];
+    ret[2] = a * M[2];
+    return ret;
+}
+
+inline Matrix3s operator*(const Matrix3s &m, const float a) {
+    return a * m;
+}
+
+inline void print(const Matrix3s &v) {
+    printf("\n");
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            printf("%f ", v[j][i]);
+        }
+        printf("\n");
+    }
+}
+
+template <int dim, typename T>
+inline void test_dim_type() {
+    T a[dim][dim], b[dim][dim], c[dim][dim];
+    T x[dim], y[dim], z[dim];
+
+    MatrixND <dim, T> m_a, m_b, m_c;
+    VectorND<dim, T> v_x, v_y, v_z;
+
+    for (int i = 0; i < dim; i++)
+        for (int j = 0; j < dim; j++) {
+            m_a[i][j] = a[i][j] = rand();
+            m_b[i][j] = b[i][j] = rand();
+            m_c[i][j] = c[i][j] = rand();
+            v_x[i] = x[i] = rand();
+            v_y[i] = y[i] = rand();
+            v_z[i] = z[i] = rand();
+        }
+
+    auto result_test = [&]() {
+        bool same = true;
+        for (int i = 0; i < dim; i++)
+            for (int j = 0; j < dim; j++) {
+                if (std::abs(a[i][j] - m_a[i][j]) > T(1e-6f)) same = false;
+                if (std::abs(b[i][j] - m_b[i][j]) > T(1e-6f)) same = false;
+                if (std::abs(c[i][j] - m_c[i][j]) > T(1e-6f)) same = false;
+            }
+        for (int i = 0; i < dim; i++) {
+            if (std::abs(x[i] - v_x[i]) > T(1e-6f)) same = false;
+            if (std::abs(y[i] - v_y[i]) > T(1e-6f)) same = false;
+            if (std::abs(z[i] - v_z[i]) > T(1e-6f)) same = false;
+        }
+        assert(same);
+    };
+
+    m_c += m_a * m_b;
+    for (int i = 0; i < dim; i++)
+        for (int j = 0; j < dim; j++)
+            for (int k = 0; k < dim; k++)
+                c[j][i] += a[k][i] * b[j][k];
+    result_test();
+
+    v_z = v_x / v_y - v_z;
+    for (int i = 0; i < dim; i++)
+        z[i] = x[i] / y[i] - z[i];
+    result_test();
+}
+
+inline void test_vector_and_matrix() {
+    test_dim_type<2, float>();
+    test_dim_type<3, float>();
+    /*
+    glm::vec2 a(1, 2);
+    glm::vec2 b(3, 4);
+    glm::mat2 c = glm::outerProduct(a, b);
+    VectorND<2, float> aa(1, 2);
+    VectorND<2, float> bb(3, 4);
+    MatrixND<2, float> cc = MatrixND<2, float>::outer_product(aa, bb);
+    for (int i = 0; i < 2; i++)
+        for (int j = 0; j < 2; j++) {
+            printf("%.4f %.4f\n", c[i][j], cc[i][j]);
+        }
+      */
+    printf("Vector and matrix test passes.\n");
+}
+
+template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
+inline MatrixND<DIM, T, ISA> transpose(const MatrixND<DIM, T, ISA> &mat) {
+    return mat.transposed();
+}
+
+template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
+inline MatrixND<DIM, T, ISA> transposed(const MatrixND<DIM, T, ISA> &mat) {
+    return transpose(mat);
+}
+
+using Vector4 = Vector4s;
+
+using Vector2d = VectorND<2, float64, InstructionSet::AVX>;
+using Vector3d = VectorND<3, float64, InstructionSet::AVX>;
+using Vector4d = VectorND<4, float64, InstructionSet::AVX>;
+
+using Vector2i = VectorND<2, int, InstructionSet::AVX>;
+using Vector3i = VectorND<3, int, InstructionSet::AVX>;
+using Vector4i = VectorND<4, int, InstructionSet::AVX>;
+
+using Matrix2 = MatrixND<2, float32, InstructionSet::AVX>;
+using Matrix3 = MatrixND<3, float32, InstructionSet::AVX>;
+using Matrix4 = MatrixND<4, float32, InstructionSet::AVX>;
+
+using Matrix2d = MatrixND<2, float64, InstructionSet::AVX>;
+using Matrix3d = MatrixND<3, float64, InstructionSet::AVX>;
+using Matrix4d = MatrixND<4, float64, InstructionSet::AVX>;
+
+float32 determinant(const MatrixND<2, float32, InstructionSet::AVX> &mat) {
+    return mat[0][0] * mat[1][1] - mat[0][1] * mat[1][0];
+}
+
+float32 determinant(const MatrixND<3, float32, InstructionSet::AVX> &mat) {
+    return mat[0][0] * (mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2])
+           - mat[1][0] * (mat[0][1] * mat[2][2] - mat[2][1] * mat[0][2])
+           + mat[2][0] * (mat[0][1] * mat[1][2] - mat[1][1] * mat[0][2]);
+}
+
+template <typename T, InstructionSet ISA>
+inline VectorND<3, T, ISA> cross(const VectorND<3, T, ISA> &a, const VectorND<3, T, ISA> &b) {
+    return VectorND<3, T, ISA>(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+}
+
+template <int DIM, typename T, InstructionSet ISA>
+inline T dot(const VectorND<DIM, T, ISA> &a, const VectorND<DIM, T, ISA> &b) {
+    T sum = a[0] * b[0];
+    for (int i = 1; i < DIM; i++) {
+        sum += a[i] * b[i];
+    }
+    return sum;
+}
+
+template <int DIM, typename T, InstructionSet ISA>
+inline VectorND<DIM, T, ISA> normalize(const VectorND<DIM, T, ISA> &a) {
+    return (T(1) / a.length()) * a;
+}
+
+template <int DIM, typename T, InstructionSet ISA>
+inline VectorND<DIM, T, ISA> normalized(const VectorND<DIM, T, ISA> &a) {
     return normalize(a);
 }
 
-inline Vector3 abs(const Vector3 &a) {
-    return Vector3(std::abs(a.x), std::abs(a.y), std::abs(a.z));
+template <int DIM, typename T, InstructionSet ISA>
+inline float32 length(const VectorND<DIM, T, ISA> &a) {
+    return a.length();
 }
 
-inline Vector3 set_up(const Vector3 &a, const Vector3 &y) {
-    Vector3 x, z;
-    if (std::abs(y.y) > 1.0f - eps) {
-        x = Vector3(1, 0, 0);
-    } else {
-        x = normalize(cross(y, Vector3(0, 1, 0)));
-    }
-    z = cross(x, y);
-    return a.x * x + a.y * y + a.z * z;
-}
-
-inline Vector3 multiply_matrix4(Matrix4 m, Vector3 v, real w) {
-    Vector4 tmp(v, w);
-    tmp = m * tmp;
-    return Vector3(tmp.x, tmp.y, tmp.z);
-}
-
-/*
-inline Vector3 random_diffuse(const Vector3 &normal) {
-    real xzs = rand();
-    real xz = sqrt(xzs), y = sqrt(1 - xzs);
-    real phi = rand() * pi * 2;
-    return set_up(Vector3(xz * cos(phi), y, xz * sin(phi)), normal);
-}
-*/
-
-inline Vector3 random_diffuse(const Vector3 &normal, real u, real v) {
-    if (u > v) {
-        std::swap(u, v);
-    }
-    if (v < eps) {
-        v = eps;
-    }
-    u /= v;
-    real xz = v, y = sqrt(1 - v * v);
-    real phi = u * pi * 2;
-    return set_up(Vector3(xz * cos(phi), y, xz * sin(phi)), normal);
-}
-
-inline Vector3 reflect(const Vector3 &d, const Vector3 &n) {
-    return glm::reflect(d, n);
-}
-
-inline Vector3 random_diffuse(const Vector3 &normal) {
-    return random_diffuse(normal, rand(), rand());
-}
-
-inline Vector4 pow(const Vector4 &v, const float &p) {
-    return Vector4(
-            std::pow(v[0], p),
-            std::pow(v[1], p),
-            std::pow(v[2], p),
-            std::pow(v[3], p)
-    );
-}
-
-inline Vector3 pow(const Vector3 &v, const float &p) {
-    return Vector3(
-            std::pow(v[0], p),
-            std::pow(v[1], p),
-            std::pow(v[2], p)
-    );
-}
-
-
-inline real max_component(const Vector3 &v) {
-    return std::max(v.x, std::max(v.y, v.z));
-}
-
-inline double max_component(const Vector3d &v) {
-    return std::max(v.x, std::max(v.y, v.z));
-}
-
-#ifdef CV_ON
-#define CV(v) if (abnormal(v)) {for (int i = 0; i < 1; i++) printf("Abnormal value %s (Ln %d)\n", #v, __LINE__); taichi::print(v); puts("");}
-#else
-#define CV(v)
-#endif
-
-template <typename T>
-inline bool is_normal(T m) {
-    return std::isfinite(m);
-}
-
-template <typename T>
-inline bool abnormal(T m) {
-    return !is_normal(m);
-}
-
-template <>
-inline bool is_normal(Vector2 v) {
-    return is_normal(v[0]) && is_normal(v[1]);
-}
-
-template <>
-inline bool is_normal(Vector2d v) {
-    return is_normal(v[0]) && is_normal(v[1]);
-}
-
-template <>
-inline bool is_normal(Vector3 v) {
-    return is_normal(v[0]) && is_normal(v[1]) && is_normal(v[2]);
-}
-
-template <>
-inline bool is_normal(Vector3d v) {
-    return is_normal(v[0]) && is_normal(v[1]) && is_normal(v[2]);
-}
-
-template <>
-inline bool is_normal(Matrix2 m) {
-    return is_normal(m[0][0]) && is_normal(m[0][1]) &&
-           is_normal(m[1][0]) && is_normal(m[1][1]);
-}
-
-template <>
-inline bool is_normal(Matrix3 m) {
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-            if (!is_normal(m[i][j])) return false;
-        }
-    }
-    return true;
-}
-
-template <>
-inline bool is_normal(Matrix4 m) {
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            if (!is_normal(m[i][j])) return false;
-        }
-    }
-    return true;
-}
-
-inline Vector2 clamp(const Vector2 &v) {
-    return Vector2(clamp(v[0]), clamp(v[1]));
-}
-
-inline float cross(const Vector2 &a, const Vector2 &b) {
-    return a.x * b.y - a.y * b.x;
-}
-
-inline float matrix_norm_squared(const Matrix2 &a) {
-    float sum = 0.0f;
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 2; j++) {
-            sum += a[i][j] * a[i][j];
-        }
-    }
-    return sum;
-}
-
-inline float matrix_norm_squared(const Matrix3 &a) {
-    float sum = 0.0f;
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-            sum += a[i][j] * a[i][j];
-        }
-    }
-    return sum;
-}
-
-inline double frobenius_norm2(const Matrix2d &a) {
-    return a[0][0] * a[0][0] + a[0][1] * a[0][1] + a[1][0] * a[1][0] + a[1][1] * a[1][1];
-}
-
-inline double frobenius_norm(const Matrix2d &a) {
-	return sqrt(frobenius_norm2(a));
-}
-
-inline real frobenius_norm2(const Matrix2 &a) {
-    return a[0][0] * a[0][0] + a[0][1] * a[0][1] + a[1][0] * a[1][0] + a[1][1] * a[1][1];
-}
-
-inline real frobenius_norm(const Matrix2 &a) {
-	return sqrt(frobenius_norm2(a));
-}
-
-inline real frobenius_norm2(const Matrix3 &a) {
-    return a[0][0] * a[0][0] + a[0][1] * a[0][1] + a[1][0] * a[1][0] + a[1][1] * a[1][1];
-}
-
-inline real frobenius_norm(const Matrix3 &a) {
-    return sqrt(frobenius_norm2(a));
-}
-
-
-inline bool intersect(const Vector2 &a, const Vector2 &b, const Vector2 &c, const Vector2 &d) {
-    if (cross(c - a, b - a) * cross(b - a, d - a) > 0 && cross(a - d, c - d) * cross(c - d, b - d) > 0) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-inline float nearest_distance(const Vector2 &p, const Vector2 &a, const Vector2 &b) {
-    float ab = length(a - b);
-    Vector2 dir = (b - a) / ab;
-    float pos = clamp(dot(p - a, dir), 0.0f, ab);
-    return length(a + pos * dir - p);
-}
-
-inline float nearest_distance(const Vector2 &p, const std::vector<Vector2> polygon) {
-    float dist = std::numeric_limits<float>::infinity();
-    for (int i = 0; i < (int)polygon.size(); i++) {
-        dist = std::min(dist, nearest_distance(p, polygon[i], polygon[(i + 1) % polygon.size()]));
-    }
-    return dist;
-}
-
-inline bool inside_polygon(const Vector2 &p, const std::vector<Vector2> polygon) {
-    int count = 0;
-    static const Vector2 q(123532, 532421123);
-    for (int i = 0; i < (int)polygon.size(); i++) {
-        count += intersect(p, q, polygon[i], polygon[(i + 1) % polygon.size()]);
-    }
-    return count % 2 == 1;
-}
-
-inline std::vector<Vector2>
-points_inside_polygon(std::vector<float> x_range, std::vector<float> y_range, const std::vector<Vector2> polygon) {
-    std::vector<Vector2> ret;
-    for (float x = x_range[0]; x < x_range[1]; x += x_range[2]) {
-        for (float y = y_range[0]; y < y_range[1]; y += y_range[2]) {
-            Vector2 p(x, y);
-            if (inside_polygon(p, polygon)) {
-                ret.push_back(p);
-            }
-        }
+template <int DIM, typename T, InstructionSet ISA>
+inline VectorND<DIM, T, ISA> fract(const VectorND<DIM, T, ISA> &a) {
+    VectorND<DIM, T, ISA> ret;
+    for (int i = 0; i < DIM; i++) {
+        ret[i] = a[i] - (int)floor(a[i]);
     }
     return ret;
-}
-
-inline std::vector<Vector2>
-points_inside_sphere(std::vector<float> x_range, std::vector<float> y_range, const Vector2 &center, float radius) {
-    std::vector<Vector2> ret;
-    for (float x = x_range[0]; x < x_range[1]; x += x_range[2]) {
-        for (float y = y_range[0]; y < y_range[1]; y += y_range[2]) {
-            Vector2 p(x, y);
-            if (length(p - center) < radius) {
-                ret.push_back(p);
-            }
-        }
-    }
-    return ret;
-}
-
-inline int64 get_largest_pot(int64 a) {
-    assert_info(a > 0, "a should be positive, instead of " + std::to_string(a));
-    // TODO: optimize
-    int64 i = 1;
-    while (i * 2 <= a) {
-        i *= 2;
-    }
-    return i;
 }
 
 TC_NAMESPACE_END

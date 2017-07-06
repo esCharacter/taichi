@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "math_util.h"
+#include "math.h"
 #include "linalg.h"
 #include <cstring>
 #include <cstdio>

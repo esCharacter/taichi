@@ -7,7 +7,7 @@
     the MIT license as written in the LICENSE file.
 *******************************************************************************/
 
-#include <taichi/math/math_util.h>
+#include <taichi/math/math.h>
 #include <taichi/visualization/texture_renderer.h>
 
 #ifdef TC_USE_OPENGL

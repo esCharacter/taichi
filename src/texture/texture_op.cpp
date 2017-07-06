@@ -31,7 +31,7 @@ public:
     virtual Vector4 sample(const Vector3 &coord) const override {
         Vector3 c = inv_zoom * (coord - center) + center;
         if (repeat)
-            c = glm::fract(c);
+            c = fract(c);
         return tex->sample(c);
     }
 };
@@ -94,7 +94,7 @@ public:
     }
 
     virtual Vector4 sample(const Vector3 &coord) const override {
-        return glm::fract(tex->sample(coord));
+        return fract(tex->sample(coord));
     }
 };
 

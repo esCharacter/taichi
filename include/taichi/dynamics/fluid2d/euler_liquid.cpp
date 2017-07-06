@@ -315,7 +315,7 @@ void EulerLiquid::advect(real delta_t) {
             particle.position = clamp_particle_position(particle.position);
         }
         total_energy += dot(velocity, velocity) * 0.5f;
-        //total_energy -= glm::dot(particle.position, gravity);
+        //total_energy -= dot(particle.position, gravity);
     }
     */
     Array<real> new_u = advect(u, delta_t), new_v = advect(v, delta_t);

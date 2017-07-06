@@ -15,8 +15,6 @@
 
 TC_NAMESPACE_BEGIN
 
-using glm::vec4;
-
 class TextureRenderer {
 private:
     static GLuint program, vbo;
@@ -33,7 +31,7 @@ public:
 
     void reset();
 
-    void set_pixel(int x, int y, vec4 color);
+    void set_pixel(int x, int y, Vector4 color);
 
     template <typename T>
     void set_texture(Array2D<T> image);
@@ -43,16 +41,16 @@ public:
     ~TextureRenderer();
 
     static Vector4 to_vec4(real dat) {
-        return vec4(dat);
+        return dat;
     }
     static Vector4 to_vec4(unsigned char dat) {
-        return vec4(dat / 255.0f);
+        return dat / 255.0f;
     }
     static Vector4 to_vec4(Vector2 dat) {
-        return Vector4(dat, 0, 1);
+        return Vector4(dat.x, dat.y, 0, 1);
     }
     static Vector4 to_vec4(Vector3 dat) {
-        return Vector4(dat, 1);
+        return Vector4(dat.x, dat.y, dat.z, 1);
     }   
     static Vector4 to_vec4(Vector4 dat) {
         return dat;

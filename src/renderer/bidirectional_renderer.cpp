@@ -96,12 +96,12 @@ Path BidirectionalRenderer::trace_light_path(StateSequence &rand) {
     Vector3 u = normalized(tri.v[1] - tri.v[0]);
     Vector3 v = cross(tri.normal, u);
     info.to_world = Matrix3(u, v, tri.normal);
-    info.to_local = glm::transpose(info.to_world);
+    info.to_local = transposed(info.to_world);
 
     BSDF bsdf(scene, info);
     Vertex vertex(info, bsdf);
     vertex.event = (int)SurfaceScatteringFlags::emit;
-    vertex.pdf = glm::dot(info.normal, dir) / pi;
+    vertex.pdf = dot(info.normal, dir) / pi;
     result.push_back(vertex);
     trace(result, ray, 1, max_light_events, rand);
     return result;

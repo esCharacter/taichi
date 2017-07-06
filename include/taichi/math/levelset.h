@@ -12,7 +12,7 @@
 
 #include <taichi/common/util.h>
 #include <taichi/math/array.h>
-#include <taichi/math/math_simd.h>
+#include <taichi/math/linalg.h>
 
 TC_NAMESPACE_BEGIN
 

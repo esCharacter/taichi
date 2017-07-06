@@ -24,7 +24,7 @@
 #include <unistd.h>
 #endif
 #include <mutex>
-#include <taichi/math/math_util.h>
+#include <taichi/math/math.h>
 #ifndef _WIN64
 #include <sys/time.h>
 #endif

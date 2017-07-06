@@ -10,7 +10,7 @@
 #pragma once
 
 #include <taichi/common/util.h>
-#include <taichi/math/linalg.h>
+#include <taichi/math/math.h>
 #include <vector>
 
 TC_NAMESPACE_BEGIN
@@ -83,7 +83,7 @@ struct Triangle {
     }
 
     Triangle get_transformed(const Matrix4 &transform) const {
-        const Matrix4 normal_transform = glm::transpose(glm::inverse(transform));
+        const Matrix4 normal_transform = transposed(inversed(transform));
         return Triangle(
             multiply_matrix4(transform, v[0], 1.0f),
             multiply_matrix4(transform, v[0] + v10, 1.0f),

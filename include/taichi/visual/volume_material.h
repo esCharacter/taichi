@@ -41,7 +41,7 @@ public:
 
     void set_transform(const Matrix4 &local2world) {
         this->local2world = local2world;
-        this->world2local = glm::inverse(local2world);
+        this->world2local = inverse(local2world);
     }
 
     virtual real sample_free_distance(StateSequence &rand, const Ray &ray) const {
@@ -55,7 +55,7 @@ public:
     }
 
     virtual real unbiased_sample_attenuation(const Vector3 &start, const Vector3 &end, StateSequence &rand) const {
-        return get_attenuation(glm::length(multiply_matrix4(world2local, end - start, 0)));
+        return get_attenuation(length(multiply_matrix4(world2local, end - start, 0)));
     }
 
     virtual VolumeEvent sample_event(StateSequence &rand, const Ray &ray) const {

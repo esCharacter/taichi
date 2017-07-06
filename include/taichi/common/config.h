@@ -21,7 +21,7 @@
 #include <taichi/common/string_utils.h>
 #include <taichi/common/util.h>
 #include <taichi/common/asset_manager.h>
-#include <taichi/math/math_util.h>
+#include <taichi/math/math.h>
 #include <taichi/math/linalg.h>
 
 TC_NAMESPACE_BEGIN
@@ -83,6 +83,9 @@ public:
     Vector2 get(std::string key, const Vector2 &default_val) const { if (data.find(key) == data.end()) { return default_val; } else return get_vec2(key); }
     Vector3 get(std::string key, const Vector3 &default_val) const { if (data.find(key) == data.end()) { return default_val; } else return get_vec3(key); }
     Vector4 get(std::string key, const Vector4 &default_val) const { if (data.find(key) == data.end()) { return default_val; } else return get_vec4(key); }
+    Vector2i get(std::string key, const Vector2i &default_val) const { if (data.find(key) == data.end()) { return default_val; } else return get_vec2i(key); }
+    Vector3i get(std::string key, const Vector3i &default_val) const { if (data.find(key) == data.end()) { return default_val; } else return get_vec3i(key); }
+    Vector4i get(std::string key, const Vector4i &default_val) const { if (data.find(key) == data.end()) { return default_val; } else return get_vec4i(key); }
 
     bool has_key(std::string key) const {
         return data.find(key) != data.end();

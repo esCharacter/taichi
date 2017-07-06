@@ -31,7 +31,7 @@ BSDF::BSDF(std::shared_ptr<Scene> const &scene, int triangle_id) { // initialize
     float sgn = 1;
     Vector3 v = cross(sgn * t.normal, u);
     local_to_world = Matrix3(u, v, t.normal);
-    world_to_local = glm::transpose(local_to_world);
+    world_to_local = transposed(local_to_world);
     geometry_normal = t.normal;
     material = scene->get_mesh_from_triangle_id(triangle_id)->material.get();
     uv = Vector2(0.5f);

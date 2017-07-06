@@ -269,7 +269,7 @@ public:
     }
 
     virtual Vector4 sample(const Vector3 &coord) const override {
-        return Vector4(real(bool(glm::length(coord - center) < radius)));
+        return Vector4(real(bool(length(coord - center) < radius)));
     }
 };
 

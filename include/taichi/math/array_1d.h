@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <taichi/math/math_util.h>
+#include <taichi/math/math.h>
 #include <taichi/math/linalg.h>
 
 TC_NAMESPACE_BEGIN
@@ -81,7 +81,7 @@ real Array1D<T>::dot(const Array1D<T> &b) {
     real sum(0);
     assert(same_dim(b));
     for (int i = 0; i < size; i++) {
-        sum += glm::dot(this->data[i], b.data[i]);
+        sum += dot(this->data[i], b.data[i]);
     }
     return sum;
 }
