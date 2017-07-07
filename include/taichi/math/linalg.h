@@ -11,8 +11,8 @@
 #pragma once
 
 #include <cmath>
-#include <taichi/common/util.h>
 #include <type_traits>
+#include <taichi/common/util.h>
 
 // >= AVX 2
 #include <immintrin.h>
