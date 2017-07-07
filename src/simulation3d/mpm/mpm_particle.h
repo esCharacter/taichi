@@ -313,7 +313,7 @@ public:
     void plasticity() override {
         Matrix3 u, v, sig;
         svd(this->dg_e, u, sig, v);
-        Matrix3 t = Matrix3(1.0);
+        Matrix3 t(1.0f);
         real delta_q = 0;
         project(sig, alpha, t, delta_q);
         Matrix3 rec = u * sig * transpose(v);

@@ -106,7 +106,7 @@ public:
     }
 
     real scalar_contribution_function(const Contribution &contribution) {
-        return max_component(contribution.c); // TODO: change to luminance
+        return contribution.c.max(); // TODO: change to luminance
     }
 
     virtual PathContribution get_path_contribution(MarkovChain &mc) {

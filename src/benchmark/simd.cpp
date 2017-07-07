@@ -18,7 +18,7 @@ private:
     int n;
     bool brute_force;
     std::vector<Vector4> input;
-    std::vector<Vector4s> input_s;
+    std::vector<Vector4> input_s;
     Matrix4 M;
 public:
     void initialize(const Config &config) override {
@@ -41,8 +41,8 @@ protected:
 
     void iterate() override {
         if (brute_force) {
-            Vector4s ret(0.0f);
-            Matrix4s Ms(M);
+            Vector4 ret(0.0f);
+            Matrix4 Ms(M);
             for (int i = 0; i < workload; i++) {
                 ret += Ms * input_s[i];
             }
@@ -58,10 +58,10 @@ protected:
 
 public:
     bool test() const override {
-        Matrix4s Ms(M);
+        Matrix4 Ms(M);
         for (int i = 0; i < workload; i++) {
-            Vector4s bf_result = M * input[i];
-            Vector4s simd_result = Ms * input_s[i];
+            Vector4 bf_result = M * input[i];
+            Vector4 simd_result = Ms * input_s[i];
             if ((bf_result - simd_result).length() > 1e-6) {
                 P(M);
                 P(Ms);

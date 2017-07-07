@@ -89,7 +89,7 @@ public:
 
                     // Evaluateh
                     Vector3 f = path_throughput(full_path).cast<real>();
-                    if (max_component(f) <= 0.0f) {
+                    if (f.max() <= 0.0f) {
                         //printf("f\n");
                         continue;
                     }
@@ -105,7 +105,7 @@ public:
                         continue;
                     }
                     Vector3 c = f * float(w / p);
-                    if (max_component(c) <= 0.0) continue;
+                    if (c.max() <= 0.0) continue;
                     pc.push_back(Contribution(screen_u, screen_v, path_length, c));
                 }
             }

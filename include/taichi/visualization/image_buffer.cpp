@@ -36,7 +36,7 @@ void Array2D<T>::load(const std::string &filename) {
                 (*this)[i][j][0] = pixel[0];
                 (*this)[i][j][1] = pixel[0];
                 (*this)[i][j][2] = pixel[0];
-                if (channels == 4 && same_type<T, Vector4>())
+                if (channels == 4 && std::is_same<T, Vector4>::value)
                     (*this)[i][j][3] = pixel[0];
             }
         }
@@ -48,7 +48,7 @@ void Array2D<T>::load(const std::string &filename) {
                 (*this)[i][j][0] = pixel[0];
                 (*this)[i][j][1] = pixel[1];
                 (*this)[i][j][2] = pixel[2];
-                if (channels == 4 && same_type<T, Vector4>())
+                if (channels == 4 && std::is_same<T, Vector4>::value)
                     (*this)[i][j][3] = pixel[3];
             }
         }

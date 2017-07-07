@@ -84,22 +84,6 @@ inline int sgn(double a) {
     return 0;
 }
 
-inline float fract(float x) {
-    return x - std::floor(x);
-}
-
-inline Vector2 fract(const Vector2 &v) {
-    return Vector2(fract(v.x), fract(v.y));
-}
-
-inline Vector3 fract(const Vector3 &v) {
-    return Vector3(fract(v.x), fract(v.y), fract(v.z));
-}
-
-inline Vector4 fract(const Vector4 &v) {
-    return Vector4(fract(v.x), fract(v.y), fract(v.z), fract(v.w));
-}
-
 // inline float frand() { return (float)rand() / (RAND_MAX + 1); }
 inline float rand() {
     static unsigned int x = 123456789, y = 362436069, z = 521288629, w = 88675123;
@@ -131,46 +115,6 @@ inline float catmull_rom(float f_m_1, float f_0, float f_1, float f_2,
 
 inline float catmull_rom(float *pf_m_1, float x_r) {
     return catmull_rom(*pf_m_1, *(pf_m_1 + 1), *(pf_m_1 + 2), *(pf_m_1 + 3), x_r);
-}
-
-inline void print(std::string v) {
-    printf("%s\n", v.c_str());
-}
-
-inline void print(float v) {
-    printf("%f\n", v);
-}
-
-inline void print(int v) {
-    printf("%d\n", v);
-}
-
-inline void print(unsigned int v) {
-    printf("%u\n", v);
-}
-
-inline void print(long v) {
-    printf("%ld\n", v);
-}
-
-#ifndef WIN32
-
-inline void print(size_t v) {
-    printf("%lld\n", (long long)v);
-}
-
-#endif
-
-inline void print(long long v) {
-    std::cout << v << std::endl;
-}
-
-inline void print(unsigned long long v) {
-    std::cout << v << std::endl;
-}
-
-inline void print(double v) {
-    std::cout << v << std::endl;
 }
 
 inline int is_prime(int a) {
@@ -257,15 +201,6 @@ inline Vector3 pow(const Vector3 &v, const float &p) {
     );
 }
 
-
-inline real max_component(const Vector3 &v) {
-    return std::max(v.x, std::max(v.y, v.z));
-}
-
-inline double max_component(const Vector3d &v) {
-    return std::max(v.x, std::max(v.y, v.z));
-}
-
 #ifdef CV_ON
 #define CV(v) if (abnormal(v)) {for (int i = 0; i < 1; i++) printf("Abnormal value %s (Ln %d)\n", #v, __LINE__); taichi::print(v); puts("");}
 #else
@@ -332,55 +267,6 @@ inline Vector2 clamp(const Vector2 &v) {
     return Vector2(clamp(v[0]), clamp(v[1]));
 }
 
-inline float cross(const Vector2 &a, const Vector2 &b) {
-    return a.x * b.y - a.y * b.x;
-}
-
-inline float matrix_norm_squared(const Matrix2 &a) {
-    float sum = 0.0f;
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 2; j++) {
-            sum += a[i][j] * a[i][j];
-        }
-    }
-    return sum;
-}
-
-inline float matrix_norm_squared(const Matrix3 &a) {
-    float sum = 0.0f;
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-            sum += a[i][j] * a[i][j];
-        }
-    }
-    return sum;
-}
-
-inline double frobenius_norm2(const Matrix2d &a) {
-    return a[0][0] * a[0][0] + a[0][1] * a[0][1] + a[1][0] * a[1][0] + a[1][1] * a[1][1];
-}
-
-inline double frobenius_norm(const Matrix2d &a) {
-    return sqrt(frobenius_norm2(a));
-}
-
-inline real frobenius_norm2(const Matrix2 &a) {
-    return a[0][0] * a[0][0] + a[0][1] * a[0][1] + a[1][0] * a[1][0] + a[1][1] * a[1][1];
-}
-
-inline real frobenius_norm(const Matrix2 &a) {
-    return sqrt(frobenius_norm2(a));
-}
-
-inline real frobenius_norm2(const Matrix3 &a) {
-    return a[0][0] * a[0][0] + a[0][1] * a[0][1] + a[1][0] * a[1][0] + a[1][1] * a[1][1];
-}
-
-inline real frobenius_norm(const Matrix3 &a) {
-    return sqrt(frobenius_norm2(a));
-}
-
-
 inline bool intersect(const Vector2 &a, const Vector2 &b, const Vector2 &c, const Vector2 &d) {
     if (cross(c - a, b - a) * cross(b - a, d - a) > 0 && cross(a - d, c - d) * cross(c - d, b - d) > 0) {
         return true;
@@ -389,15 +275,15 @@ inline bool intersect(const Vector2 &a, const Vector2 &b, const Vector2 &c, cons
     }
 }
 
-inline float nearest_distance(const Vector2 &p, const Vector2 &a, const Vector2 &b) {
-    float ab = length(a - b);
+inline real nearest_distance(const Vector2 &p, const Vector2 &a, const Vector2 &b) {
+    real ab = length(a - b);
     Vector2 dir = (b - a) / ab;
-    float pos = clamp(dot(p - a, dir), 0.0f, ab);
+    real pos = clamp(dot(p - a, dir), 0.0f, ab);
     return length(a + pos * dir - p);
 }
 
-inline float nearest_distance(const Vector2 &p, const std::vector<Vector2> &polygon) {
-    float dist = std::numeric_limits<float>::infinity();
+inline real nearest_distance(const Vector2 &p, const std::vector<Vector2> &polygon) {
+    real dist = std::numeric_limits<float>::infinity();
     for (int i = 0; i < (int)polygon.size(); i++) {
         dist = std::min(dist, nearest_distance(p, polygon[i], polygon[(i + 1) % polygon.size()]));
     }
@@ -449,163 +335,6 @@ inline int64 get_largest_pot(int64 a) {
         i *= 2;
     }
     return i;
-}
-
-inline MatrixND<2, float32, InstructionSetExtension::AVX> inversed(const MatrixND<2, float32, InstructionSetExtension::AVX> &mat) {
-    real det = determinant(mat);
-    return 1.0f / det * MatrixND<2, float32, InstructionSetExtension::AVX>(
-            VectorND<2, float32, InstructionSetExtension::AVX>(mat[1][1], -mat[0][1]),
-            VectorND<2, float32, InstructionSetExtension::AVX>(mat[1][0], mat[0][0]
-            )
-    );
-}
-
-inline MatrixND<3, float32, InstructionSetExtension::AVX> inversed(const MatrixND<3, float32, InstructionSetExtension::AVX> &mat) {
-    real det = determinant(mat);
-    return 1.0f / det * MatrixND<3, float32, InstructionSetExtension::AVX>(
-            VectorND<3, float32, InstructionSetExtension::AVX>(mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2],
-                                                      mat[2][1] * mat[0][2] - mat[0][1] * mat[2][2],
-                                                      mat[0][1] * mat[1][2] - mat[1][1] * mat[0][2]),
-            VectorND<3, float32, InstructionSetExtension::AVX>(mat[2][0] * mat[1][2] - mat[1][0] * mat[2][2],
-                                                      mat[0][0] * mat[2][2] - mat[2][0] * mat[0][2],
-                                                      mat[1][0] * mat[0][2] - mat[0][0] * mat[1][2]),
-            VectorND<3, float32, InstructionSetExtension::AVX>(mat[1][0] * mat[2][1] - mat[2][0] * mat[1][1],
-                                                      mat[2][0] * mat[0][1] - mat[0][0] * mat[2][1],
-                                                      mat[0][0] * mat[1][1] - mat[1][0] * mat[0][1])
-    );
-}
-
-template <typename T>
-inline MatrixND<4, T, InstructionSetExtension::AVX> inversed(const MatrixND<4, T, InstructionSetExtension::AVX> &m) {
-    // This function is copied from GLM
-    /*
-    ================================================================================
-    OpenGL Mathematics (GLM)
-    --------------------------------------------------------------------------------
-    GLM is licensed under The Happy Bunny License and MIT License
-
-    ================================================================================
-    The Happy Bunny License (Modified MIT License)
-    --------------------------------------------------------------------------------
-    Copyright (c) 2005 - 2014 G-Truc Creation
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-
-    Restrictions:
-     By making use of the Software for military purposes, you choose to make a
-     Bunny unhappy.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-    THE SOFTWARE.
-
-    ================================================================================
-    The MIT License
-    --------------------------------------------------------------------------------
-    Copyright (c) 2005 - 2014 G-Truc Creation
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-    THE SOFTWARE.
-     */
-
-
-
-    T Coef00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
-    T Coef02 = m[1][2] * m[3][3] - m[3][2] * m[1][3];
-    T Coef03 = m[1][2] * m[2][3] - m[2][2] * m[1][3];
-
-    T Coef04 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
-    T Coef06 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
-    T Coef07 = m[1][1] * m[2][3] - m[2][1] * m[1][3];
-
-    T Coef08 = m[2][1] * m[3][2] - m[3][1] * m[2][2];
-    T Coef10 = m[1][1] * m[3][2] - m[3][1] * m[1][2];
-    T Coef11 = m[1][1] * m[2][2] - m[2][1] * m[1][2];
-
-    T Coef12 = m[2][0] * m[3][3] - m[3][0] * m[2][3];
-    T Coef14 = m[1][0] * m[3][3] - m[3][0] * m[1][3];
-    T Coef15 = m[1][0] * m[2][3] - m[2][0] * m[1][3];
-
-    T Coef16 = m[2][0] * m[3][2] - m[3][0] * m[2][2];
-    T Coef18 = m[1][0] * m[3][2] - m[3][0] * m[1][2];
-    T Coef19 = m[1][0] * m[2][2] - m[2][0] * m[1][2];
-
-    T Coef20 = m[2][0] * m[3][1] - m[3][0] * m[2][1];
-    T Coef22 = m[1][0] * m[3][1] - m[3][0] * m[1][1];
-    T Coef23 = m[1][0] * m[2][1] - m[2][0] * m[1][1];
-
-    using Vector = VectorND<4, T, InstructionSetExtension::AVX>;
-
-    Vector Fac0(Coef00, Coef00, Coef02, Coef03);
-    Vector Fac1(Coef04, Coef04, Coef06, Coef07);
-    Vector Fac2(Coef08, Coef08, Coef10, Coef11);
-    Vector Fac3(Coef12, Coef12, Coef14, Coef15);
-    Vector Fac4(Coef16, Coef16, Coef18, Coef19);
-    Vector Fac5(Coef20, Coef20, Coef22, Coef23);
-
-    Vector Vec0(m[1][0], m[0][0], m[0][0], m[0][0]);
-    Vector Vec1(m[1][1], m[0][1], m[0][1], m[0][1]);
-    Vector Vec2(m[1][2], m[0][2], m[0][2], m[0][2]);
-    Vector Vec3(m[1][3], m[0][3], m[0][3], m[0][3]);
-
-    Vector Inv0(Vec1 * Fac0 - Vec2 * Fac1 + Vec3 * Fac2);
-    Vector Inv1(Vec0 * Fac0 - Vec2 * Fac3 + Vec3 * Fac4);
-    Vector Inv2(Vec0 * Fac1 - Vec1 * Fac3 + Vec3 * Fac5);
-    Vector Inv3(Vec0 * Fac2 - Vec1 * Fac4 + Vec2 * Fac5);
-
-    Vector SignA(+1, -1, +1, -1);
-    Vector SignB(-1, +1, -1, +1);
-    MatrixND<4, T, InstructionSetExtension::AVX> Inverse(Inv0 * SignA, Inv1 * SignB, Inv2 * SignA, Inv3 * SignB);
-
-    Vector Row0(Inverse[0][0], Inverse[1][0], Inverse[2][0], Inverse[3][0]);
-
-    Vector Dot0(m[0] * Row0);
-    T Dot1 = (Dot0.x + Dot0.y) + (Dot0.z + Dot0.w);
-
-    T OneOverDeterminant = static_cast<T>(1) / Dot1;
-
-    return Inverse * OneOverDeterminant;
-}
-
-template <int DIM, typename T, InstructionSetExtension ISE>
-inline MatrixND<DIM, T, ISE> inverse(const MatrixND<DIM, T, ISE> &m) {
-    return inversed(m);
-};
-
-template <int DIM, typename T, InstructionSetExtension ISE>
-inline VectorND<DIM, T, ISE> floor(const VectorND<DIM, T, ISE> &v) {
-    VectorND<DIM, T, ISE> ret;
-    for (int i = 0; i < DIM; i++) {
-        ret[i] = floor(v[i]);
-    }
-    return ret;
 }
 
 //#define rand frand

@@ -62,23 +62,23 @@ public:
 
 protected:
     real sum_simd(Vector3 p) const {
-        Vector4s ret;
-        Vector4s w_cache[3];
-        Vector4s dw_cache[3];
+        Vector4 ret;
+        Vector4 w_cache[3];
+        Vector4 dw_cache[3];
 
         // [x, x - 1, x - 2, x - 3]
         // [+,     +,     -,     -]
         for (int k = 0; k < 3; k++) {
-            const Vector4s t = Vector4s(p[k]) - Vector4s(0, 1, 2, 3);
+            const Vector4 t = Vector4(p[k]) - Vector4(0, 1, 2, 3);
             auto tt = t * t;
             auto ttt = tt * t;
-            w_cache[k] = Vector4s(-1 / 6.0f, 0.5f, -0.5f, 1 / 6.0f) * ttt +
-                         Vector4s(1, -1, -1, 1) * tt +
-                         Vector4s(-2, 0, 0, 2) * t +
-                         Vector4s(4 / 3.0f, 2 / 3.0f, 2 / 3.0f, 4 / 3.0f);
-            dw_cache[k] = Vector4s(-0.5f, 1.5f, -1.5f, 0.5f) * tt +
-                          Vector4s(2, -2, -2, 2) * t +
-                          Vector4s(-2, 0, 0, 2);
+            w_cache[k] = Vector4(-1 / 6.0f, 0.5f, -0.5f, 1 / 6.0f) * ttt +
+                         Vector4(1, -1, -1, 1) * tt +
+                         Vector4(-2, 0, 0, 2) * t +
+                         Vector4(4 / 3.0f, 2 / 3.0f, 2 / 3.0f, 4 / 3.0f);
+            dw_cache[k] = Vector4(-0.5f, 1.5f, -1.5f, 0.5f) * tt +
+                          Vector4(2, -2, -2, 2) * t +
+                          Vector4(-2, 0, 0, 2);
             /*
             for (int i = 0; i < 4; i++) {
                 P(dw_cache[k][i]);
@@ -86,24 +86,24 @@ protected:
             }
             */
             /* FMA - doesn't help...
-            Vector4s w(4 / 3.0f, 2 / 3.0f, 2 / 3.0f, 4 / 3.0f), dw(2, 0, 0, -2);
-            const Vector4s tt = t * t;
-            const Vector4s ttt = tt * t;
-            w = fused_mul_add(Vector4s(2, 0, 0, -2), t, w);
-            w = fused_mul_add(Vector4s(1, -1, -1, 1), tt, w);
-            w = fused_mul_add(Vector4s(1 / 6.0f, -0.5f, 0.5f, -1 / 6.0f), ttt, w);
-            dw = fused_mul_add(Vector4s(2, -2, -2, 2), t, dw);
-            dw = fused_mul_add(Vector4s(0.5f, -1.5f, 1.5f, -0.5f), tt, dw);
+            Vector4 w(4 / 3.0f, 2 / 3.0f, 2 / 3.0f, 4 / 3.0f), dw(2, 0, 0, -2);
+            const Vector4 tt = t * t;
+            const Vector4 ttt = tt * t;
+            w = fused_mul_add(Vector4(2, 0, 0, -2), t, w);
+            w = fused_mul_add(Vector4(1, -1, -1, 1), tt, w);
+            w = fused_mul_add(Vector4(1 / 6.0f, -0.5f, 0.5f, -1 / 6.0f), ttt, w);
+            dw = fused_mul_add(Vector4(2, -2, -2, 2), t, dw);
+            dw = fused_mul_add(Vector4(0.5f, -1.5f, 1.5f, -0.5f), tt, dw);
             w_cache[k] = w;
             dw_cache[k] = dw;
              */
         }
 
-        Vector4s w_stages[3][4];
+        Vector4 w_stages[3][4];
         for (int k = 0; k < 4; k++) {
-            w_stages[0][k] = Vector4s(dw_cache[0][k], w_cache[0][k], w_cache[0][k], w_cache[0][k]);
-            w_stages[1][k] = Vector4s(w_cache[1][k], dw_cache[1][k], w_cache[1][k], w_cache[1][k]);
-            w_stages[2][k] = Vector4s(w_cache[2][k], w_cache[2][k], dw_cache[2][k], w_cache[2][k]);
+            w_stages[0][k] = Vector4(dw_cache[0][k], w_cache[0][k], w_cache[0][k], w_cache[0][k]);
+            w_stages[1][k] = Vector4(w_cache[1][k], dw_cache[1][k], w_cache[1][k], w_cache[1][k]);
+            w_stages[2][k] = Vector4(w_cache[2][k], w_cache[2][k], dw_cache[2][k], w_cache[2][k]);
         }
 
         for (int i = 0; i < 4; i++) {
@@ -112,7 +112,7 @@ protected:
                 for (int k = 0; k < 4; k++) {
                     auto gw = p * w_stages[2][k];
                     real weight = gw.w;
-                    ret += Vector4s(weight) * gw;
+                    ret += Vector4(weight) * gw;
                 }
             }
         }

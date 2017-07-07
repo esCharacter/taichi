@@ -156,7 +156,7 @@ bool SPPMRenderer::trace_photon(StateSequence &rand, real contribution_scaling) 
         ray = Ray(info.pos, out_dir);
         // Russian roulette
         if (russian_roulette) {
-            real p = max_component(color);
+            real p = color.max();
             if (p < 1) {
                 if (rand() < p) {
                     flux = (1.0f / p) * flux;

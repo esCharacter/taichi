@@ -25,13 +25,28 @@ TC_NAMESPACE_BEGIN
 #define TC_ALIGNED(x) __attribute__((aligned(x)))
 #endif
 
+inline float32 fract(float32 a) {
+    return a - (int)floor(a);
+}
+
+inline float64 fract(float64 a) {
+    return a - (int)floor(a);
+}
+
 enum class InstructionSetExtension {
     None,
+    SSE,
     AVX,
     AVX2
 };
 
-const InstructionSetExtension default_instruction_set = InstructionSetExtension::AVX;
+constexpr InstructionSetExtension default_instruction_set = InstructionSetExtension::SSE;
+
+
+/////////////////////////////////////////////////////////////////
+/////              N dimensional Vector
+/////////////////////////////////////////////////////////////////
+
 
 template <int DIM, typename T, InstructionSetExtension ISE>
 struct VectorNDBase {
@@ -68,6 +83,21 @@ struct VectorNDBase<3, T, ISE> {
     };
 };
 
+template <>
+struct VectorNDBase<3, float32, InstructionSetExtension::SSE> {
+    union {
+        __m128 v;
+        struct {
+            float32 x, y, z, w;
+        };
+        float32 d[4];
+    };
+
+    VectorNDBase() : v(_mm_set_ps1(0.0f)) {}
+
+    VectorNDBase(__m128 v) : v(v) {}
+};
+
 template <typename T, InstructionSetExtension ISE>
 struct VectorNDBase<4, T, ISE> {
     union {
@@ -78,16 +108,76 @@ struct VectorNDBase<4, T, ISE> {
     };
 };
 
-template <int DIM, typename T, InstructionSetExtension ISE = InstructionSetExtension::AVX>
+template <>
+struct VectorNDBase<4, float32, InstructionSetExtension::SSE> {
+    union {
+        __m128 v;
+        struct {
+            float32 x, y, z, w;
+        };
+        float32 d[4];
+    };
+
+    VectorNDBase() : v(_mm_set_ps1(0.0f)) {}
+
+    VectorNDBase(__m128 v) : v(v) {}
+};
+
+template <int DIM, typename T, InstructionSetExtension ISE = default_instruction_set>
 struct VectorND : public VectorNDBase<DIM, T, ISE> {
+    template <int DIM_, typename T_, InstructionSetExtension ISE_>
+    static constexpr bool SIMD_4_32F = (DIM_ == 3 || DIM_ == 4) &&
+                                       std::is_same<T_, float32>::value &&
+                                       ISE_ >= InstructionSetExtension::SSE;
+
+    template <int DIM_, typename T_, InstructionSetExtension ISE_>
+    static constexpr bool SIMD_NONE = !SIMD_4_32F<DIM_, T_, ISE_>;
+
+    using VectorBase = VectorNDBase<DIM, T, ISE>;
+    using VectorBase::d;
+
     VectorND() {
         for (int i = 0; i < DIM; i++) {
             this->d[i] = T(0);
         }
     }
 
+    // Vector3f
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_> && DIM_ == 3, int> = 0>
+    VectorND(float32 x) : VectorND(x, x, x, 0.0f) {}
+
+    // Vector3f
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_> && DIM_ == 3, int> = 0>
+    VectorND(real x, real y, real z, real w = 0.0f) : VectorBase(_mm_set_ps(w, z, y, x)) {}
+
+
+    // Vector initialization
+    template <typename F, std::enable_if_t<std::is_same<F, VectorND>::value, int> = 0>
+    VectorND(const F &f) {
+        for (int i = 0; i < DIM; i++)
+            this->d[i] = f[i];
+    }
+
+    // Scalar initialization
+    template <typename F, std::enable_if_t<std::is_same<F, T>::value, int> = 0>
+    VectorND(const F &f) {
+        for (int i = 0; i < DIM; i++)
+            this->d[i] = f;
+    }
+
+    // Function intialization
+    template <typename F, std::enable_if_t<std::is_convertible<F, std::function<T(int)>>::value, int> = 0>
+    VectorND(const F &f) {
+        for (int i = 0; i < DIM; i++)
+            this->d[i] = f(i);
+    }
+
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_NONE<DIM_, T_, ISE_> || DIM_ != 3, int> = 0>
     VectorND(T v) {
-        for (int i = 0; i < DIM; i++) {
+        for (int i = 0; i < std::min(DIM, DIM_); i++) {
             this->d[i] = v;
         }
     }
@@ -105,6 +195,9 @@ struct VectorND : public VectorNDBase<DIM, T, ISE> {
         this->d[2] = v2;
     }
 
+    // All except Vector3f
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<!(SIMD_4_32F<DIM_, T_, ISE_> && DIM_ == 3), int> = 0>
     VectorND(T v0, T v1, T v2, T v3) {
         static_assert(DIM == 4, "Vector dim must be 4");
         this->d[0] = v0;
@@ -113,110 +206,158 @@ struct VectorND : public VectorNDBase<DIM, T, ISE> {
         this->d[3] = v3;
     }
 
+    // Vector extension
+    template <int DIM_ = DIM, std::enable_if_t<(DIM_ > 1), int> = 0>
+    VectorND(const VectorND<DIM - 1, T, ISE> &o, T extra) {
+        for (int i = 0; i < DIM_; i++) {
+            this->d[i] = o[i];
+        }
+        this->d[DIM - 1] = extra;
+    }
+
+    template <typename T_>
+    VectorND(const std::vector<T_> &o) {
+        if (o.size() != DIM) {
+            error("Dimension mismatch: " + std::to_string(DIM) + " v.s. " + std::to_string((int)o.size()));
+        }
+        for (int i = 0; i < DIM; i++)
+            this->d[i] = T(o[i]);
+    }
+
     T &operator[](int i) { return this->d[i]; }
 
     const T &operator[](int i) const { return this->d[i]; }
 
-    static T dot(VectorND<DIM, T, ISE> row, VectorND<DIM, T, ISE> column) {
+    T dot(VectorND<DIM, T, ISE> o) const {
         T ret = T(0);
         for (int i = 0; i < DIM; i++)
-            ret += row[i] * column[i];
+            ret += this->d[i] * o[i];
         return ret;
     }
 
-    VectorND &operator=(const VectorND o) {
-        for (int i = 0; i < DIM; i++) {
-            this->d[i] = o[i];
-        }
+
+    template <typename F, std::enable_if_t<std::is_convertible<F, std::function<T(int)>>::value, int> = 0>
+    VectorND &set(const F &f) {
+        for (int i = 0; i < DIM; i++)
+            this->d[i] = f(i);
         return *this;
     }
 
-    VectorND operator+(const VectorND &o) const {
-        VectorND ret;
-        for (int i = 0; i < DIM; i++) {
-            ret[i] = this->d[i] + o[i];
-        }
-        return ret;
+    VectorND &operator=(const VectorND &o) {
+        return this->set([&](int i) { return o[i]; });
     }
 
-    VectorND operator-(const VectorND &o) const {
-        VectorND ret;
-        for (int i = 0; i < DIM; i++) {
-            ret[i] = this->d[i] - o[i];
-        }
-        return ret;
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_>, int> = 0>
+    VectorND &operator=(__m128 v) {
+        this->v = v;
+        return *this;
     }
 
-    VectorND operator*(const VectorND &o) const {
-        VectorND ret;
-        for (int i = 0; i < DIM; i++) {
-            ret[i] = this->d[i] * o[i];
-        }
-        return ret;
+    // SIMD: Vector3f & Vector4f
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_>, int> = 0>
+    VectorND operator+(const VectorND &o) const { return _mm_add_ps(this->v, o.v); }
+
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_>, int> = 0>
+    VectorND operator-(const VectorND &o) const { return _mm_sub_ps(this->v, o.v); }
+
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_>, int> = 0>
+    VectorND operator*(const VectorND &o) const { return _mm_mul_ps(this->v, o.v); }
+
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_>, int> = 0>
+    VectorND operator/(const VectorND &o) const { return _mm_div_ps(this->v, o.v); }
+
+    // Non-SIMD cases
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_NONE<DIM_, T_, ISE_>, int> = 0>
+    VectorND operator+(const VectorND o) const {
+        return VectorND([=](int i) { return this->d[i] + o[i]; });
     }
 
-    VectorND operator/(const VectorND &o) const {
-        VectorND ret;
-        for (int i = 0; i < DIM; i++) {
-            ret[i] = this->d[i] / o[i];
-        }
-        return ret;
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_NONE<DIM_, T_, ISE_>, int> = 0>
+    VectorND operator-(const VectorND o) const {
+        return VectorND([=](int i) { return this->d[i] - o[i]; });
+    }
+
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_NONE<DIM_, T_, ISE_>, int> = 0>
+    VectorND operator*(const VectorND o) const {
+        return VectorND([=](int i) { return this->d[i] * o[i]; });
+    }
+
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_NONE<DIM_, T_, ISE_>, int> = 0>
+    VectorND operator/(const VectorND o) const {
+        return VectorND([=](int i) { return this->d[i] / o[i]; });
+    }
+
+    // Inplace operations
+    VectorND &operator+=(const VectorND o) {
+        return this->set([&](int i) { return this->d[i] + o[i]; });
+    }
+
+    VectorND &operator-=(const VectorND o) {
+        return this->set([&](int i) { return this->d[i] - o[i]; });
+    }
+
+    VectorND &operator*=(const VectorND o) {
+        return this->set([&](int i) { return this->d[i] * o[i]; });
+    }
+
+    VectorND &operator/=(const VectorND o) {
+        return this->set([&](int i) { return this->d[i] / o[i]; });
     }
 
     VectorND operator-() const {
-        VectorND ret;
-        for (int i = 0; i < DIM; i++) {
-            ret[i] = -this->d[i];
-        }
-        return ret;
-    }
-
-    VectorND &operator+=(const VectorND &o) {
-        for (int i = 0; i < DIM; i++) {
-            this->d[i] += o[i];
-        };
-        return *this;
-    }
-
-    VectorND &operator-=(const VectorND &o) {
-        for (int i = 0; i < DIM; i++) {
-            this->d[i] -= o[i];
-        };
-        return *this;
-    }
-
-    VectorND &operator*=(const VectorND &o) {
-        for (int i = 0; i < DIM; i++) {
-            this->d[i] *= o[i];
-        };
-        return *this;
-    }
-
-    VectorND &operator/=(const VectorND &o) {
-        for (int i = 0; i < DIM; i++) {
-            this->d[i] /= o[i];
-        };
-        return *this;
+        return VectorND([=](int i) { return -this->d[i]; });
     }
 
     bool operator==(const VectorND &o) const {
         for (int i = 0; i < DIM; i++)
-            if (this->d[i] != o[i]) return false;
+            if (this->d[i] != o[i])
+                return false;
+        return true;
+    }
+
+    bool operator==(const std::vector<T> &o) const {
+        if (o.size() != DIM)
+            return false;
+        for (int i = 0; i < DIM; i++)
+            if (this->d[i] != o[i])
+                return false;
         return true;
     }
 
     bool operator!=(const VectorND &o) const {
         for (int i = 0; i < DIM; i++)
-            if (this->d[i] != o[i]) return true;
+            if (this->d[i] != o[i])
+                return true;
         return false;
     }
 
     VectorND abs() const {
-        VectorND ret;
-        for (int i = 0; i < DIM; i++) {
-            ret[i] = std::abs(this->d[i]);
-        }
-        return ret;
+        return VectorND([&](int i) { return std::abs(d[i]); });
+    }
+
+    VectorND floor() const {
+        return VectorND([&](int i) { return std::floor(d[i]); });
+    }
+
+    VectorND sin() const {
+        return VectorND([&](int i) { return std::sin(d[i]); });
+    }
+
+    VectorND cos() const {
+        return VectorND([&](int i) { return std::cos(d[i]); });
+    }
+
+    VectorND fract() const {
+        return VectorND([&](int i) { return taichi::fract(d[i]); });
     }
 
     T max() const {
@@ -227,6 +368,69 @@ struct VectorND : public VectorNDBase<DIM, T, ISE> {
         return ret;
     }
 
+    template <typename G>
+    VectorND<DIM, G, ISE> cast() const {
+        return VectorND<DIM, G, ISE>([this](int i) { return static_cast<G>(this->d[i]); });
+    }
+
+    void print() const {
+        for (int i = 0; i < DIM; i++) {
+            std::cout << this->d[i] << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_>, int> = 0>
+    operator __m128() const { return this->v; }
+
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_>, int> = 0>
+    operator __m128i() const { return _mm_castps_si128(this->v); }
+
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_>, int> = 0>
+    operator __m128d() const { return _mm_castps_pd(this->v); }
+
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_>, int> = 0>
+    VectorND(__m128 v) { this->v = v; }
+
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_>, int> = 0>
+    VectorND operator-() const { return _mm_sub_ps(VectorND(0.0f), this->v); }
+
+
+    template <int a, int b, int c, int d, int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_>, int> = 0>
+    VectorND permute() const {
+        return _mm_permute_ps(this->v, _MM_SHUFFLE(a, b, c, d));
+    }
+
+    template <int a, int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_>, int> = 0>
+    VectorND broadcast() const {
+        return permute<a, a, a, a>();
+    }
+
+    // member function: length
+    // Vector3f
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_> && DIM_ == 3, int> = 0>
+    float32 length2() const {
+        return _mm_cvtss_f32(_mm_dp_ps(this->v, this->v, 0x71));
+    }
+
+    // Vector4f
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_> && DIM_ == 4, int> = 0>
+    float32 length2() const {
+        return _mm_cvtss_f32(_mm_dp_ps(this->v, this->v, 0xf1));
+    }
+
+    // Others
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_NONE<DIM_, T_, ISE_>, int> = 0>
     T length2() const {
         T ret = 0;
         for (int i = 0; i < DIM; i++) {
@@ -235,19 +439,19 @@ struct VectorND : public VectorNDBase<DIM, T, ISE> {
         return ret;
     }
 
-    real length() const {
+    auto length() const {
         return std::sqrt(length2());
-    }
-
-    template <typename G>
-    VectorND<DIM, G, ISE> cast() const {
-        VectorND<DIM, G, ISE> ret;
-        for (int i = 0; i < DIM; i++)
-            ret[i] = static_cast<G>(this->d[i]);
-        return ret;
     }
 };
 
+template <int DIM, typename T, InstructionSetExtension ISE>
+inline void print(const VectorND<DIM, T, ISE> &v) {
+    std::cout << std::endl;
+    for (int i = 0; i < DIM; i++) {
+        std::cout << v[i] << " ";
+    }
+    std::cout << std::endl;
+}
 
 template <int DIM, typename T, InstructionSetExtension ISE>
 VectorND<DIM, T, ISE> operator*(T a, const VectorND<DIM, T, ISE> &v) {
@@ -259,20 +463,64 @@ VectorND<DIM, T, ISE> operator*(const VectorND<DIM, T, ISE> &v, T a) {
     return a * v;
 }
 
-using Vector2 = VectorND<2, real, InstructionSetExtension::AVX>;
-using Vector3 = VectorND<3, real, InstructionSetExtension::AVX>;
-using Vector4 = VectorND<4, real, InstructionSetExtension::AVX>;
+using Vector1 = VectorND<1, float32, default_instruction_set>;
+using Vector2 = VectorND<2, float32, default_instruction_set>;
+using Vector3 = VectorND<3, float32, default_instruction_set>;
+using Vector4 = VectorND<4, float32, default_instruction_set>;
 
-template <int DIM, typename T, InstructionSetExtension ISE = InstructionSetExtension::AVX>
+using Vector1d = VectorND<1, float64, default_instruction_set>;
+using Vector2d = VectorND<2, float64, default_instruction_set>;
+using Vector3d = VectorND<3, float64, default_instruction_set>;
+using Vector4d = VectorND<4, float64, default_instruction_set>;
+
+using Vector1i = VectorND<1, int, default_instruction_set>;
+using Vector2i = VectorND<2, int, default_instruction_set>;
+using Vector3i = VectorND<3, int, default_instruction_set>;
+using Vector4i = VectorND<4, int, default_instruction_set>;
+
+// FMA: a * b + c
+inline Vector4 fused_mul_add(const Vector4 &a, const Vector4 &b, const Vector4 &c) {
+    return _mm_fmadd_ps(a, b, c);
+}
+
+// FMA: a * b + c
+inline Vector3 fused_mul_add(const Vector3 &a, const Vector3 &b, const Vector3 &c) {
+    return _mm_fmadd_ps(a, b, c);
+}
+
+inline void transpose4x4(const Vector4 m[], Vector4 t[]) {
+    Vector4 t0 = _mm_unpacklo_ps(m[0], m[1]);
+    Vector4 t2 = _mm_unpacklo_ps(m[2], m[3]);
+    Vector4 t1 = _mm_unpackhi_ps(m[0], m[1]);
+    Vector4 t3 = _mm_unpackhi_ps(m[2], m[3]);
+    t[0] = _mm_movelh_ps(t0, t2);
+    t[1] = _mm_movehl_ps(t2, t0);
+    t[2] = _mm_movelh_ps(t1, t3);
+    t[3] = _mm_movehl_ps(t3, t1);
+}
+
+
+/////////////////////////////////////////////////////////////////
+/////              N dimensional Matrix
+/////////////////////////////////////////////////////////////////
+
+
+template <int DIM, typename T, InstructionSetExtension ISE = default_instruction_set>
 struct MatrixND {
+    template <int DIM_, typename T_, InstructionSetExtension ISE_>
+    static constexpr bool SIMD_4_32F = (DIM_ == 3 || DIM_ == 4) &&
+                                       std::is_same<T_, float32>::value &&
+                                       ISE_ >= InstructionSetExtension::SSE;
+
+    template <int DIM_, typename T_, InstructionSetExtension ISE_>
+    static constexpr bool SIMD_NONE = !SIMD_4_32F<DIM_, T_, ISE_>;
     using Vector = VectorND<DIM, T, ISE>;
     Vector d[DIM];
 
-    template<int DIM1, typename T1, InstructionSetExtension ISA1>
-    MatrixND(const MatrixND<DIM1, T1, ISA1> &o) {
-        (*this) = T(0);
-        for (int i = 0; i < DIM1; i++) {
-            for (int j = 0; j < DIM1; j++) {
+    template <int DIM_, typename T_, InstructionSetExtension ISE_>
+    MatrixND(const MatrixND<DIM_, T_, ISE_> &o) : MatrixND() {
+        for (int i = 0; i < std::min(DIM_, DIM); i++) {
+            for (int j = 0; j < std::min(DIM_, DIM); j++) {
                 d[i][j] = o[i][j];
             }
         }
@@ -284,20 +532,16 @@ struct MatrixND {
         }
     }
 
-    MatrixND(T v) {
-        for (int i = 0; i < DIM; i++) {
-            d[i] = VectorND<DIM, T, ISE>();
-        }
+    MatrixND(T v) : MatrixND() {
         for (int i = 0; i < DIM; i++) {
             d[i][i] = v;
         }
     }
 
     // Diag
-    MatrixND(Vector v) {
-        for (int i = 0; i < DIM; i++) {
+    MatrixND(Vector v) : MatrixND() {
+        for (int i = 0; i < DIM; i++)
             this->d[i][i] = v[i];
-        }
     }
 
     MatrixND(Vector v0, Vector v1) {
@@ -321,17 +565,26 @@ struct MatrixND {
         this->d[3] = v3;
     }
 
-    MatrixND &operator=(const MatrixND &m) {
-        for (int i = 0; i < DIM; i++) {
-            d[i] = m[i];
-        }
+    // Function intialization
+    template <typename F, std::enable_if_t<std::is_convertible<F, std::function<Vector(int)>>::value, int> = 0>
+    MatrixND(const F &f) {
+        for (int i = 0; i < DIM; i++)
+            this->d[i] = f(i);
+    }
+
+    template <typename F, std::enable_if_t<std::is_convertible<F, std::function<Vector(int)>>::value, int> = 0>
+    MatrixND &set(const F &f) {
+        for (int i = 0; i < DIM; i++)
+            this->d[i] = f(i);
         return *this;
     }
 
+    MatrixND &operator=(const MatrixND &o) {
+        return this->set([&](int i) { return o[i]; });
+    }
+
     MatrixND(const MatrixND &o) {
-        for (int i = 0; i < DIM; i++) {
-            d[i] = o[i];
-        }
+        *this = o;
     }
 
     VectorND<DIM, T, ISE> &operator[](int i) {
@@ -343,60 +596,72 @@ struct MatrixND {
     }
 
     VectorND<DIM, T, ISE> operator*(const VectorND<DIM, T, ISE> &o) const {
-        VectorND<DIM, T, ISE> ret;
-        for (int i = 0; i < DIM; i++)
-            for (int j = 0; j < DIM; j++) {
-                ret[i] += d[j][i] * o[j];
-            }
+        VectorND <DIM, T, ISE> ret = d[0] * o[0];
+        for (int i = 1; i < DIM; i++)
+            ret += d[i] * o[i];
         return ret;
     }
 
+    // No FMA
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_NONE<DIM_, T_, ISE_>, int> = 0>
     MatrixND operator*(const MatrixND &o) const {
-        MatrixND ret;
-        for (int i = 0; i < DIM; i++)
-            for (int j = 0; j < DIM; j++)
-                for (int k = 0; k < DIM; k++) {
-                    ret[j][i] += d[k][i] * o[j][k];
-                }
+        return MatrixND([&](int i) { return (*this) * o[i]; });
+    }
+
+    // Matrix3
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_> && DIM_ == 3, int> = 0>
+    Vector operator*(const Vector &o) const {
+        Vector3 ret = d[2] * o.template broadcast<2>();
+        ret = fused_mul_add(d[1], o.template broadcast<1>(), ret);
+        ret = fused_mul_add(d[0], o.template broadcast<0>(), ret);
         return ret;
     }
 
-    static MatrixND outer_product(VectorND<DIM, T, ISE> row, VectorND<DIM, T, ISE> column) {
-        MatrixND ret;
-        for (int i = 0; i < DIM; i++) {
-            ret[i] = column * row[i];
-        }
+    // Matrix4
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_> && DIM_ == 4, int> = 0>
+    Vector4 operator*(const Vector4 &o) const {
+        Vector4 ret = o.broadcast<3>() * d[3];
+        ret = fused_mul_add(d[2], o.template broadcast<2>(), ret);
+        ret = fused_mul_add(d[1], o.template broadcast<1>(), ret);
+        ret = fused_mul_add(d[0], o.template broadcast<0>(), ret);
         return ret;
     }
+
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_> && DIM_ == 4, int> = 0>
+    Vector4 multiply_vec3(const Vector4 &o) const {
+        Vector4 ret = o.broadcast<2>() * d[2];
+        ret = fused_mul_add(d[1], o.template broadcast<1>(), ret);
+        ret = fused_mul_add(d[0], o.template broadcast<0>(), ret);
+        return ret;
+    }
+
+    static MatrixND outer_product(Vector row, Vector column) {
+        return MatrixND([&](int i) { return column * row[i]; });
+    }
+
 
     MatrixND operator+(const MatrixND &o) const {
-        MatrixND ret;
-        for (int i = 0; i < DIM; i++) {
-            ret[i] = d[i] + o[i];
-        }
-        return ret;
-    }
-
-    MatrixND &operator+=(const MatrixND &o) {
-        for (int i = 0; i < DIM; i++) {
-            d[i] += o[i];
-        }
-        return *this;
-    }
-
-    MatrixND &operator-=(const MatrixND &o) {
-        for (int i = 0; i < DIM; i++) {
-            d[i] -= o[i];
-        }
-        return *this;
+        return MatrixND([=](int i) { return this->d[i] + o[i]; });
     }
 
     MatrixND operator-(const MatrixND &o) const {
-        MatrixND ret;
-        for (int i = 0; i < DIM; i++) {
-            ret[i] = -d[i];
-        }
-        return ret;
+        return MatrixND([=](int i) { return this->d[i] - o[i]; });
+    }
+
+    MatrixND &operator+=(const MatrixND &o) {
+        return this->set([&](int i) { return this->d[i] + o[i]; });
+    }
+
+    MatrixND &operator-=(const MatrixND &o) {
+        return this->set([&](int i) { return this->d[i] - o[i]; });
+    }
+
+    MatrixND operator-() const {
+        return MatrixND([=](int i) { return -this->d[i]; });
     }
 
     bool operator==(const MatrixND &o) const {
@@ -414,13 +679,19 @@ struct MatrixND {
     }
 
     T frobenius_norm2() const {
-        return d[0].length2() + d[1].length2() + d[2].length2();
+        T sum = d[0].length2();
+        for (int i = 1; i < DIM; i++) {
+            sum += d[i].length2();
+        }
+        return sum;
     }
 
-    real frobenius_norm() const {
+    auto frobenius_norm() const {
         return std::sqrt(frobenius_norm2());
     }
 
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_NONE<DIM_, T_, ISE_> || DIM_ != 4, int> = 0>
     MatrixND transposed() const {
         MatrixND ret;
         for (int i = 0; i < DIM; i++)
@@ -430,13 +701,18 @@ struct MatrixND {
         return ret;
     }
 
+    // Matrix4
+    template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
+            typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_> && DIM_ == 4, int> = 0>
+    MatrixND transposed() const {
+        MatrixND ret;
+        transpose4x4(d, ret.d);
+        return ret;
+    }
+
     template <typename G>
     MatrixND<DIM, G, ISE> cast() const {
-        MatrixND <DIM, G, ISE> ret;
-        for (int i = 0; i < DIM; i++)
-            for (int j = 0; j < DIM; j++)
-                ret[i][j] = static_cast<G>(d[i][j]);
-        return ret;
+        return MatrixND([=](int i) { return d[i].template cast<G>(); });
     }
 };
 
@@ -454,379 +730,15 @@ MatrixND<DIM, T, ISE> operator*(const MatrixND<DIM, T, ISE> &M, const float a) {
     return a * M;
 }
 
-
-template <>
-struct TC_ALIGNED(16) VectorND<3, float32, InstructionSetExtension::AVX> {
-    using Vector3s = VectorND<3, float32, InstructionSetExtension::AVX>;
-
-    union {
-        __m128 v;
-        struct {
-            float x, y, z, w;
-        };
-    };
-
-    VectorND() : VectorND(0.0f) {};
-
-    VectorND(real x, real y, real z, real w = 0.0f) : v(_mm_set_ps(w, z, y, x)) {}
-
-    VectorND(real x) : VectorND(x, x, x, 0.0f) {}
-
-    VectorND(__m128 v) : v(v) {}
-
-    float &operator[](int i) { return (&x)[i]; }
-
-    const float &operator[](int i) const { return (&x)[i]; }
-
-    operator __m128() const { return v; }
-
-    operator __m128i() const { return _mm_castps_si128(v); }
-
-    operator __m128d() const { return _mm_castps_pd(v); }
-
-    Vector3s &operator=(const Vector3s &o) {
-        v = o.v;
-        return *this;
-    }
-
-    VectorND operator+(const VectorND &o) const { return _mm_add_ps(v, o.v); }
-
-    VectorND operator-(const VectorND &o) const { return _mm_sub_ps(v, o.v); }
-
-    VectorND operator*(const VectorND &o) const { return _mm_mul_ps(v, o.v); }
-
-    VectorND operator/(const VectorND &o) const { return _mm_div_ps(v, o.v); }
-
-    VectorND operator-() const { return _mm_sub_ps(VectorND(0.0f), v); }
-
-    VectorND &operator+=(const VectorND &o) {
-        (*this) = (*this) + o;
-        return *this;
-    }
-
-    VectorND &operator-=(const VectorND &o) {
-        (*this) = (*this) - o;
-        return *this;
-    }
-
-    VectorND &operator*=(const VectorND &o) {
-        (*this) = (*this) * o;
-        return *this;
-    }
-
-    VectorND &operator/=(const VectorND &o) {
-        (*this) = (*this) / o;
-        return *this;
-    }
-
-    bool operator==(const VectorND &o) const {
-        for (int i = 0; i < 3; i++)
-            if (this->v[i] != o[i]) return false;
-        return true;
-    }
-
-    bool operator!=(const VectorND &o) const {
-        for (int i = 0; i < 3; i++)
-            if (this->v[i] != o[i]) return true;
-        return false;
-    }
-
-    template <int a, int b, int c, int d>
-    VectorND permute() const {
-        return _mm_permute_ps(v, _MM_SHUFFLE(a, b, c, d));
-    }
-
-    template <int a>
-    VectorND broadcast() const {
-        return permute<a, a, a, a>();
-    }
-
-    VectorND abs() const {
-        return VectorND(
-                std::abs(x),
-                std::abs(y),
-                std::abs(z),
-                std::abs(w)
-        );
-    }
-
-    real max() const {
-        return std::max(std::max(v[0], v[1]), v[2]);
-    }
-
-    float length2() const {
-        return _mm_cvtss_f32(_mm_dp_ps(v, v, 0x71));
-    }
-
-    float length() const {
-        return std::sqrt(length2());
-    }
-
-    template <typename G>
-    VectorND<3, G, InstructionSetExtension::AVX> cast() const {
-        VectorND<3, G, InstructionSetExtension::AVX> ret;
-        for (int i = 0; i < 3; i++)
-            ret[i] = static_cast<G>(this->v[i]);
-        return ret;
-    }
-};
-
-typedef VectorND<3, float32, InstructionSetExtension::AVX> Vector3s;
-
-
-// SIMD Vector4
-template <>
-struct TC_ALIGNED(16) VectorND<4, float32, InstructionSetExtension::AVX> {
-    using Vector4s = VectorND<4, float32, InstructionSetExtension::AVX>;
-
-    union {
-        __m128 v;
-        struct {
-            float x, y, z, w;
-        };
-    };
-
-    VectorND() : VectorND(0.0f) {};
-
-    VectorND(const Vector3 &vec, float w = 0.0f) : VectorND(vec[0], vec[1], vec[2], w) {}
-
-    VectorND(real x, real y, real z, real w = 0.0f) : v(_mm_set_ps(w, z, y, x)) {}
-
-    VectorND(real x) : v(_mm_set1_ps(x)) {}
-
-    VectorND(__m128 v) : v(v) {}
-
-    float &operator[](int i) { return (&x)[i]; }
-
-    const float &operator[](int i) const { return (&x)[i]; }
-
-    operator __m128() const { return v; }
-
-    operator __m128i() const { return _mm_castps_si128(v); }
-
-    operator __m128d() const { return _mm_castps_pd(v); }
-
-    Vector4s &operator=(const Vector4s &o) {
-        v = o.v;
-        return *this;
-    }
-
-    Vector4s operator+(const Vector4s &o) const { return _mm_add_ps(v, o.v); }
-
-    Vector4s operator-(const Vector4s &o) const { return _mm_sub_ps(v, o.v); }
-
-    Vector4s operator*(const Vector4s &o) const { return _mm_mul_ps(v, o.v); }
-
-    Vector4s operator/(const Vector4s &o) const { return _mm_div_ps(v, o.v); }
-
-    Vector4s operator-() const { return _mm_sub_ps(Vector4s(0.0f), v); }
-
-    Vector4s &operator+=(const Vector4s &o) {
-        (*this) = (*this) + o;
-        return *this;
-    }
-
-    Vector4s &operator-=(const Vector4s &o) {
-        (*this) = (*this) - o;
-        return *this;
-    }
-
-    Vector4s &operator*=(const Vector4s &o) {
-        (*this) = (*this) * o;
-        return *this;
-    }
-
-    Vector4s &operator/=(const Vector4s &o) {
-        (*this) = (*this) / o;
-        return *this;
-    }
-
-    Vector3 to_vec3() const {
-        return Vector3(x, y, z);
-    }
-
-    template <int a, int b, int c, int d>
-    Vector4s permute() const {
-        return _mm_permute_ps(v, _MM_SHUFFLE(a, b, c, d));
-    }
-
-    template <int a>
-    Vector4s broadcast() const {
-        return permute<a, a, a, a>();
-    }
-
-    // TODO: vectorize ?
-    Vector4s abs() const {
-        return Vector4s(
-                std::abs(x),
-                std::abs(y),
-                std::abs(z),
-                std::abs(w)
-        );
-    }
-
-    real max() const {
-        return std::max(std::max(v[0], v[1]), std::max(v[2], v[3]));
-    }
-
-    float length2() const {
-        return _mm_cvtss_f32(_mm_dp_ps(v, v, 0xf1));
-    }
-
-    float length() const {
-        return std::sqrt(length2());
-    }
-
-    template <typename G>
-    VectorND<3, G, InstructionSetExtension::AVX> cast() const {
-        VectorND<3, G, InstructionSetExtension::AVX> ret;
-        for (int i = 0; i < 3; i++)
-            ret[i] = static_cast<G>(this->v[i]);
-        return ret;
-    }
-};
-
-typedef VectorND<4, float32, InstructionSetExtension::AVX> Vector4s;
-
-
-// FMA: a * b + c
-inline Vector4s fused_mul_add(const Vector4s &a, const Vector4s &b, const Vector4s &c) {
-    return _mm_fmadd_ps(a, b, c);
-}
-
-// FMA: a * b + c
-inline Vector3s fused_mul_add(const Vector3s &a, const Vector3s &b, const Vector3s &c) {
-    return _mm_fmadd_ps(a, b, c);
-}
-
-inline Vector4s operator*(float a, const Vector4s &vec) {
-    return Vector4s(a) * vec;
-}
-
-inline void transpose4x4(const Vector4s m[], Vector4s t[]) {
-    Vector4s t0 = _mm_unpacklo_ps(m[0], m[1]);
-    Vector4s t2 = _mm_unpacklo_ps(m[2], m[3]);
-    Vector4s t1 = _mm_unpackhi_ps(m[0], m[1]);
-    Vector4s t3 = _mm_unpackhi_ps(m[2], m[3]);
-    t[0] = _mm_movelh_ps(t0, t2);
-    t[1] = _mm_movehl_ps(t2, t0);
-    t[2] = _mm_movelh_ps(t1, t3);
-    t[3] = _mm_movehl_ps(t3, t1);
-}
-
-// SIMD Matrix4
-template <>
-struct TC_ALIGNED(16) MatrixND<4, float32, InstructionSetExtension::AVX> {
-    using Vector = VectorND<4, float32, InstructionSetExtension::AVX>;
-    using Matrix4s = MatrixND<4, float32, InstructionSetExtension::AVX>;
-    union {
-        // Four columns, instead of rows!
-        Vector4s v[4];
-    };
-
-    MatrixND() {
-        v[0] = 0.0f;
-        v[1] = 0.0f;
-        v[2] = 0.0f;
-        v[3] = 0.0f;
-    }
-
-    MatrixND(float32 val) {
-        for (int i = 0; i < 4; i++) {
-            v[i] = Vector();
-        }
-        for (int i = 0; i < 4; i++) {
-            v[i][i] = val;
-        }
-    }
-
-    // Diag
-    MatrixND(Vector diag) {
-        for (int i = 0; i < 4; i++) {
-            this->v[i][i] = diag[i];
-        }
-    }
-
-    MatrixND(Vector v0, Vector v1, Vector v2, Vector v3) : v{v0, v1, v2, v3} {}
-
-    template<int DIM1, typename T1, InstructionSetExtension ISA1>
-    MatrixND(const MatrixND<DIM1, T1, ISA1> &o) {
-        for (int i = 0; i < DIM1; i++) {
-            for (int j = 0; j < DIM1; j++) {
-                v[i][j] = o[i][j];
-            }
-            for (int j = DIM1; j < 4; j++) {
-                v[i][j] = 0;
-            }
-        }
-        for (int i = DIM1; i < 4; i++) {
-            v[i] = 0;
-        }
-    }
-
-    MatrixND &operator=(const MatrixND &m) {
-        for (int i = 0; i < 4; i++) {
-            v[i] = m[i];
-        }
-        return *this;
-    }
-
-    Vector4s &operator[](int i) { return v[i]; }
-
-    const Vector4s &operator[](int i) const { return v[i]; }
-
-    Vector4s operator*(const Vector4s &o) const {
-        Vector4s ret = o.broadcast<3>() * v[3];
-        ret = fused_mul_add(v[2], o.broadcast<2>(), ret);
-        ret = fused_mul_add(v[1], o.broadcast<1>(), ret);
-        ret = fused_mul_add(v[0], o.broadcast<0>(), ret);
-        return ret;
-    }
-
-    Vector4s multiply_vec3(const Vector4s &o) const {
-        Vector4s ret = o.broadcast<2>() * v[2];
-        ret = fused_mul_add(v[1], o.broadcast<1>(), ret);
-        ret = fused_mul_add(v[0], o.broadcast<0>(), ret);
-        return ret;
-    }
-
-    MatrixND transposed() const {
-        MatrixND ret;
-        transpose4x4(v, ret.v);
-        return ret;
-    }
-};
-
-using Matrix4s = MatrixND<4, float32, InstructionSetExtension::AVX>;
-
-inline Matrix4s operator*(const float a, const Matrix4s &M) {
-    Matrix4s ret;
-    ret[0] = a * M[0];
-    ret[1] = a * M[1];
-    ret[2] = a * M[2];
-    ret[3] = a * M[3];
-    return ret;
-}
-
-inline Matrix4s operator*(const Matrix4s &M, const Matrix4s &N) {
-    Matrix4s ret;
-    for (int i = 0; i < 4; i++)
-        ret[i] = M[i] * N[i];
-    return ret;
-}
-
-inline Matrix4s operator*(const Matrix4s &m, const float a) {
-    return a * m;
-}
-
 template <int DIM, typename T, InstructionSetExtension ISE>
-inline void print(const VectorND<DIM, T, ISE> &v) {
-    std::cout << std::endl;
+MatrixND<DIM, T, ISE> operator*(const MatrixND<DIM, T, ISE> &M, const MatrixND<DIM, T, ISE> &N) {
+    MatrixND <DIM, T, ISE> ret;
     for (int i = 0; i < DIM; i++) {
-        std::cout << v[i] << " ";
+        ret[i] = M * N[i];
     }
-    std::cout << std::endl;
+    return ret;
 }
+
 
 template <int DIM, typename T, InstructionSetExtension ISE>
 inline void print(const MatrixND<DIM, T, ISE> &v) {
@@ -839,235 +751,6 @@ inline void print(const MatrixND<DIM, T, ISE> &v) {
     }
 }
 
-// SIMD Matrix3
-template <>
-struct TC_ALIGNED(16) MatrixND<3, float32, InstructionSetExtension::AVX> {
-    using Matrix3s = MatrixND<3, float32, InstructionSetExtension::AVX>;
-    union {
-        // Three columns, instead of rows!
-        Vector4s v[3];
-    };
-
-    MatrixND() {
-        v[0] = 0.0f;
-        v[1] = 0.0f;
-        v[2] = 0.0f;
-    }
-
-    template<int DIM1, typename T1, InstructionSetExtension ISA1>
-    MatrixND(const MatrixND<DIM1, T1, ISA1> &o) {
-        for (int i = 0; i < DIM1; i++) {
-            for (int j = 0; j < DIM1; j++) {
-                v[i][j] = o[i][j];
-            }
-            for (int j = DIM1; j < 3; j++) {
-                v[i][j] = 0;
-            }
-        }
-        for (int i = DIM1; i < 3; i++) {
-            v[i] = 0;
-        }
-    }
-
-    MatrixND &operator=(const Matrix3s &m) {
-        v[0] = m.v[0];
-        v[1] = m.v[1];
-        v[2] = m.v[2];
-        return *this;
-    }
-
-    MatrixND(float diag) {
-        v[0] = Vector4s(diag, 0.0f, 0.0f, 0.0f);
-        v[1] = Vector4s(0.0f, diag, 0.0f, 0.0f);
-        v[2] = Vector4s(0.0f, 0.0f, diag, 0.0f);
-    }
-
-    MatrixND(Vector3 diag) {
-        v[0] = Vector4s(diag[0], 0.0f, 0.0f, 0.0f);
-        v[1] = Vector4s(0.0f, diag[1], 0.0f, 0.0f);
-        v[2] = Vector4s(0.0f, 0.0f, diag[2], 0.0f);
-    }
-
-    MatrixND(float32 diag0, float32 diag1, float32 diag2) {
-        v[0] = Vector4s(diag0, 0.0f, 0.0f, 0.0f);
-        v[1] = Vector4s(0.0f, diag1, 0.0f, 0.0f);
-        v[2] = Vector4s(0.0f, 0.0f, diag2, 0.0f);
-    }
-
-    MatrixND(Vector4s v0, Vector4s v1, Vector4s v2) : v{v0, v1, v2} {}
-
-    MatrixND(const MatrixND<3, real, InstructionSetExtension::None> &o) {
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                v[i][j] = o[i][j];
-            }
-        }
-    }
-
-    Vector4s &operator[](int i) { return v[i]; }
-
-    const Vector4s &operator[](int i) const { return v[i]; }
-
-    Vector4s operator*(const Vector4s &o) const {
-        Vector4s ret = o.broadcast<2>() * v[2];
-        ret = fused_mul_add(v[1], o.broadcast<1>(), ret);
-        ret = fused_mul_add(v[0], o.broadcast<0>(), ret);
-        return ret;
-    }
-
-    Matrix3s operator*(const Matrix3s &o) const {
-        Matrix3s ret;
-        ret[0] = (*this) * o.v[0];
-        ret[1] = (*this) * o.v[1];
-        ret[2] = (*this) * o.v[2];
-        return ret;
-    }
-
-    static Matrix3s outer_product(Vector4s row, Vector4s column) {
-        Matrix3s ret;
-        ret[0] = column * row[0];
-        ret[1] = column * row[1];
-        ret[2] = column * row[2];
-        return ret;
-    }
-
-    Matrix3s operator+(const Matrix3s &o) const {
-        return Matrix3s(v[0] + o[0], v[1] + o[1], v[2] + o[2]);
-    }
-
-    Matrix3s &operator+=(const Matrix3s &o) {
-        v[0] += o[0];
-        v[1] += o[1];
-        v[2] += o[2];
-        return *this;
-    }
-
-    Matrix3s &operator-=(const Matrix3s &o) {
-        v[0] -= o[0];
-        v[1] -= o[1];
-        v[2] -= o[2];
-        return *this;
-    }
-
-    Matrix3s operator-(const Matrix3s &o) const {
-        return Matrix3s(v[0] - o[0], v[1] - o[1], v[2] - o[2]);
-    }
-
-    float32 frobenius_norm2() const {
-        return v[0].length2() + v[1].length2() + v[2].length2();
-    }
-
-    float32 frobenius_norm() const {
-        return std::sqrt(frobenius_norm2());
-    }
-
-    Matrix3s transposed() const {
-        Matrix3s ret;
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j <= i; j++) {
-                ret[i][j] = v[j][i];
-                ret[j][i] = v[i][j];
-            }
-        }
-        return ret;
-    }
-
-    Vector3s operator*(const Vector3s &o) const {
-        Vector4s ret = v[2] * o.broadcast<2>();
-        ret = fused_mul_add(v[1], o.broadcast<1>(), ret);
-        ret = fused_mul_add(v[0], o.broadcast<0>(), ret);
-        return Vector3s(ret[0], ret[1], ret[2]);
-    }
-};
-
-using Matrix3s = MatrixND<3, float32, InstructionSetExtension::AVX>;
-
-inline Matrix3s operator*(const float a, const Matrix3s &M) {
-    Matrix3s ret;
-    ret[0] = a * M[0];
-    ret[1] = a * M[1];
-    ret[2] = a * M[2];
-    return ret;
-}
-
-inline Matrix3s operator*(const Matrix3s &m, const float a) {
-    return a * m;
-}
-
-inline void print(const Matrix3s &v) {
-    printf("\n");
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-            printf("%f ", v[j][i]);
-        }
-        printf("\n");
-    }
-}
-
-template <int dim, typename T>
-inline void test_dim_type() {
-    T a[dim][dim], b[dim][dim], c[dim][dim];
-    T x[dim], y[dim], z[dim];
-
-    MatrixND <dim, T> m_a, m_b, m_c;
-    VectorND<dim, T> v_x, v_y, v_z;
-
-    for (int i = 0; i < dim; i++)
-        for (int j = 0; j < dim; j++) {
-            m_a[i][j] = a[i][j] = rand();
-            m_b[i][j] = b[i][j] = rand();
-            m_c[i][j] = c[i][j] = rand();
-            v_x[i] = x[i] = rand();
-            v_y[i] = y[i] = rand();
-            v_z[i] = z[i] = rand();
-        }
-
-    auto result_test = [&]() {
-        bool same = true;
-        for (int i = 0; i < dim; i++)
-            for (int j = 0; j < dim; j++) {
-                if (std::abs(a[i][j] - m_a[i][j]) > T(1e-6f)) same = false;
-                if (std::abs(b[i][j] - m_b[i][j]) > T(1e-6f)) same = false;
-                if (std::abs(c[i][j] - m_c[i][j]) > T(1e-6f)) same = false;
-            }
-        for (int i = 0; i < dim; i++) {
-            if (std::abs(x[i] - v_x[i]) > T(1e-6f)) same = false;
-            if (std::abs(y[i] - v_y[i]) > T(1e-6f)) same = false;
-            if (std::abs(z[i] - v_z[i]) > T(1e-6f)) same = false;
-        }
-        assert(same);
-    };
-
-    m_c += m_a * m_b;
-    for (int i = 0; i < dim; i++)
-        for (int j = 0; j < dim; j++)
-            for (int k = 0; k < dim; k++)
-                c[j][i] += a[k][i] * b[j][k];
-    result_test();
-
-    v_z = v_x / v_y - v_z;
-    for (int i = 0; i < dim; i++)
-        z[i] = x[i] / y[i] - z[i];
-    result_test();
-}
-
-inline void test_vector_and_matrix() {
-    test_dim_type<2, float>();
-    test_dim_type<3, float>();
-    /*
-    glm::vec2 a(1, 2);
-    glm::vec2 b(3, 4);
-    glm::mat2 c = glm::outerProduct(a, b);
-    VectorND<2, float> aa(1, 2);
-    VectorND<2, float> bb(3, 4);
-    MatrixND<2, float> cc = MatrixND<2, float>::outer_product(aa, bb);
-    for (int i = 0; i < 2; i++)
-        for (int j = 0; j < 2; j++) {
-            printf("%.4f %.4f\n", c[i][j], cc[i][j]);
-        }
-      */
-    printf("Vector and matrix test passes.\n");
-}
 
 template <int DIM, typename T, InstructionSetExtension ISE>
 inline MatrixND<DIM, T, ISE> transpose(const MatrixND<DIM, T, ISE> &mat) {
@@ -1079,32 +762,29 @@ inline MatrixND<DIM, T, ISE> transposed(const MatrixND<DIM, T, ISE> &mat) {
     return transpose(mat);
 }
 
-using Vector4 = Vector4s;
+using Matrix2 = MatrixND<2, float32, default_instruction_set>;
+using Matrix3 = MatrixND<3, float32, default_instruction_set>;
+using Matrix4 = MatrixND<4, float32, default_instruction_set>;
 
-using Vector2d = VectorND<2, float64, InstructionSetExtension::AVX>;
-using Vector3d = VectorND<3, float64, InstructionSetExtension::AVX>;
-using Vector4d = VectorND<4, float64, InstructionSetExtension::AVX>;
+using Matrix2d = MatrixND<2, float64, default_instruction_set>;
+using Matrix3d = MatrixND<3, float64, default_instruction_set>;
+using Matrix4d = MatrixND<4, float64, default_instruction_set>;
 
-using Vector2i = VectorND<2, int, InstructionSetExtension::AVX>;
-using Vector3i = VectorND<3, int, InstructionSetExtension::AVX>;
-using Vector4i = VectorND<4, int, InstructionSetExtension::AVX>;
-
-using Matrix2 = MatrixND<2, float32, InstructionSetExtension::AVX>;
-using Matrix3 = MatrixND<3, float32, InstructionSetExtension::AVX>;
-using Matrix4 = MatrixND<4, float32, InstructionSetExtension::AVX>;
-
-using Matrix2d = MatrixND<2, float64, InstructionSetExtension::AVX>;
-using Matrix3d = MatrixND<3, float64, InstructionSetExtension::AVX>;
-using Matrix4d = MatrixND<4, float64, InstructionSetExtension::AVX>;
-
-inline float32 determinant(const MatrixND<2, float32, InstructionSetExtension::AVX> &mat) {
+template <typename T, InstructionSetExtension ISE>
+inline float32 determinant(const MatrixND<2, T, ISE> &mat) {
     return mat[0][0] * mat[1][1] - mat[0][1] * mat[1][0];
 }
 
-inline float32 determinant(const MatrixND<3, float32, InstructionSetExtension::AVX> &mat) {
+template <typename T, InstructionSetExtension ISE>
+inline float32 determinant(const MatrixND<3, T, ISE> &mat) {
     return mat[0][0] * (mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2])
            - mat[1][0] * (mat[0][1] * mat[2][2] - mat[2][1] * mat[0][2])
            + mat[2][0] * (mat[0][1] * mat[1][2] - mat[1][1] * mat[0][2]);
+}
+
+template <typename T, InstructionSetExtension ISE>
+inline T cross(const VectorND<2, T, ISE> &a, const VectorND<2, T, ISE> &b) {
+    return a.x * b.y - a.y * b.x;
 }
 
 template <typename T, InstructionSetExtension ISE>
@@ -1112,13 +792,10 @@ inline VectorND<3, T, ISE> cross(const VectorND<3, T, ISE> &a, const VectorND<3,
     return VectorND<3, T, ISE>(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
 }
 
+
 template <int DIM, typename T, InstructionSetExtension ISE>
 inline T dot(const VectorND<DIM, T, ISE> &a, const VectorND<DIM, T, ISE> &b) {
-    T sum = a[0] * b[0];
-    for (int i = 1; i < DIM; i++) {
-        sum += a[i] * b[i];
-    }
-    return sum;
+    return a.dot(b);
 }
 
 template <int DIM, typename T, InstructionSetExtension ISE>
@@ -1138,11 +815,157 @@ inline float32 length(const VectorND<DIM, T, ISE> &a) {
 
 template <int DIM, typename T, InstructionSetExtension ISE>
 inline VectorND<DIM, T, ISE> fract(const VectorND<DIM, T, ISE> &a) {
-    VectorND<DIM, T, ISE> ret;
-    for (int i = 0; i < DIM; i++) {
-        ret[i] = a[i] - (int)floor(a[i]);
-    }
-    return ret;
+    return a.fract();
+}
+
+template <InstructionSetExtension ISE>
+inline MatrixND<2, float32, ISE> inversed(const MatrixND<2, float32, ISE> &mat) {
+    real det = determinant(mat);
+    return 1.0f / det * MatrixND<2, float32, ISE>(
+            VectorND<2, float32, ISE>(mat[1][1], -mat[0][1]),
+            VectorND<2, float32, ISE>(mat[1][0], mat[0][0]
+            )
+    );
+}
+
+template <InstructionSetExtension ISE>
+inline MatrixND<3, float32, ISE> inversed(const MatrixND<3, float32, ISE> &mat) {
+    real det = determinant(mat);
+    return 1.0f / det * MatrixND<3, float32, ISE>(
+            VectorND<3, float32, ISE>(mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2],
+                                      mat[2][1] * mat[0][2] - mat[0][1] * mat[2][2],
+                                      mat[0][1] * mat[1][2] - mat[1][1] * mat[0][2]),
+            VectorND<3, float32, ISE>(mat[2][0] * mat[1][2] - mat[1][0] * mat[2][2],
+                                      mat[0][0] * mat[2][2] - mat[2][0] * mat[0][2],
+                                      mat[1][0] * mat[0][2] - mat[0][0] * mat[1][2]),
+            VectorND<3, float32, ISE>(mat[1][0] * mat[2][1] - mat[2][0] * mat[1][1],
+                                      mat[2][0] * mat[0][1] - mat[0][0] * mat[2][1],
+                                      mat[0][0] * mat[1][1] - mat[1][0] * mat[0][1])
+    );
+}
+
+template <typename T, InstructionSetExtension ISE>
+inline MatrixND<4, T, ISE> inversed(const MatrixND<4, T, ISE> &m) {
+    // This function is copied from GLM
+    /*
+    ================================================================================
+    OpenGL Mathematics (GLM)
+    --------------------------------------------------------------------------------
+    GLM is licensed under The Happy Bunny License and MIT License
+
+    ================================================================================
+    The Happy Bunny License (Modified MIT License)
+    --------------------------------------------------------------------------------
+    Copyright (c) 2005 - 2014 G-Truc Creation
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    Restrictions:
+     By making use of the Software for military purposes, you choose to make a
+     Bunny unhappy.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+
+    ================================================================================
+    The MIT License
+    --------------------------------------------------------------------------------
+    Copyright (c) 2005 - 2014 G-Truc Creation
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+     */
+
+
+
+    T Coef00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
+    T Coef02 = m[1][2] * m[3][3] - m[3][2] * m[1][3];
+    T Coef03 = m[1][2] * m[2][3] - m[2][2] * m[1][3];
+
+    T Coef04 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
+    T Coef06 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
+    T Coef07 = m[1][1] * m[2][3] - m[2][1] * m[1][3];
+
+    T Coef08 = m[2][1] * m[3][2] - m[3][1] * m[2][2];
+    T Coef10 = m[1][1] * m[3][2] - m[3][1] * m[1][2];
+    T Coef11 = m[1][1] * m[2][2] - m[2][1] * m[1][2];
+
+    T Coef12 = m[2][0] * m[3][3] - m[3][0] * m[2][3];
+    T Coef14 = m[1][0] * m[3][3] - m[3][0] * m[1][3];
+    T Coef15 = m[1][0] * m[2][3] - m[2][0] * m[1][3];
+
+    T Coef16 = m[2][0] * m[3][2] - m[3][0] * m[2][2];
+    T Coef18 = m[1][0] * m[3][2] - m[3][0] * m[1][2];
+    T Coef19 = m[1][0] * m[2][2] - m[2][0] * m[1][2];
+
+    T Coef20 = m[2][0] * m[3][1] - m[3][0] * m[2][1];
+    T Coef22 = m[1][0] * m[3][1] - m[3][0] * m[1][1];
+    T Coef23 = m[1][0] * m[2][1] - m[2][0] * m[1][1];
+
+    using Vector = VectorND<4, T, ISE>;
+
+    Vector Fac0(Coef00, Coef00, Coef02, Coef03);
+    Vector Fac1(Coef04, Coef04, Coef06, Coef07);
+    Vector Fac2(Coef08, Coef08, Coef10, Coef11);
+    Vector Fac3(Coef12, Coef12, Coef14, Coef15);
+    Vector Fac4(Coef16, Coef16, Coef18, Coef19);
+    Vector Fac5(Coef20, Coef20, Coef22, Coef23);
+
+    Vector Vec0(m[1][0], m[0][0], m[0][0], m[0][0]);
+    Vector Vec1(m[1][1], m[0][1], m[0][1], m[0][1]);
+    Vector Vec2(m[1][2], m[0][2], m[0][2], m[0][2]);
+    Vector Vec3(m[1][3], m[0][3], m[0][3], m[0][3]);
+
+    Vector Inv0(Vec1 * Fac0 - Vec2 * Fac1 + Vec3 * Fac2);
+    Vector Inv1(Vec0 * Fac0 - Vec2 * Fac3 + Vec3 * Fac4);
+    Vector Inv2(Vec0 * Fac1 - Vec1 * Fac3 + Vec3 * Fac5);
+    Vector Inv3(Vec0 * Fac2 - Vec1 * Fac4 + Vec2 * Fac5);
+
+    Vector SignA(+1, -1, +1, -1);
+    Vector SignB(-1, +1, -1, +1);
+    MatrixND<4, T, ISE> Inverse(Inv0 * SignA, Inv1 * SignB, Inv2 * SignA, Inv3 * SignB);
+
+    Vector Row0(Inverse[0][0], Inverse[1][0], Inverse[2][0], Inverse[3][0]);
+
+    Vector Dot0(m[0] * Row0);
+    T Dot1 = (Dot0.x + Dot0.y) + (Dot0.z + Dot0.w);
+
+    T OneOverDeterminant = static_cast<T>(1) / Dot1;
+
+    return Inverse * OneOverDeterminant;
+}
+
+template <int DIM, typename T, InstructionSetExtension ISE>
+inline MatrixND<DIM, T, ISE> inverse(const MatrixND<DIM, T, ISE> &m) {
+    return inversed(m);
 }
 
 TC_NAMESPACE_END

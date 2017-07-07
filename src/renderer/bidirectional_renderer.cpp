@@ -284,7 +284,7 @@ PathContribution BidirectionalRenderer::connect(const Path &eye_path, const Path
                 full_path[num_eye_vertices].connected = true;
             }
             Vector3d f = path_throughput(full_path);
-            if (max_component(f) <= 0.0f) {
+            if (f.max() <= 0.0f) {
                 //printf("f\n");
                 continue;
             }
@@ -301,7 +301,7 @@ PathContribution BidirectionalRenderer::connect(const Path &eye_path, const Path
 
             Vector3d c = f * double(w / p);
             if (print_path_policy == "all" ||
-                (print_path_policy == "bright" && max_component(c) > luminance_clamping)) {
+                (print_path_policy == "bright" && c.max() > luminance_clamping)) {
                 printf("Abnormal Path: #Eye %d, #Light %d", num_eye_vertices, num_light_vertices);
                 printf("  f = %.10f %.10f %.10f, p = %.10f, c = %.10f, %.10f, %.10f\n", f[0], f[1], f[2], p, c[0],
                        c[1], c[2]);
@@ -363,7 +363,7 @@ PathContribution BidirectionalRenderer::connect(const Path &eye_path, const Path
                 printf("\n");
                 continue;
             }
-            if (max_component(c) <= 0.0) continue;
+            if (c.max() <= 0.0) continue;
             //printf("%d - %d\n", num_eye_vertices, num_light_vertices);
             result.push_back(Contribution(px, py, path_length, c.cast<float32>()));
 
@@ -425,7 +425,7 @@ Vector3d BidirectionalRenderer::path_throughput(const Path &path) {
             }
             f *= bsdf * geometry_term(path[i], path[i + 1]);
         }
-        if (max_component(f) == 0.0f) return f;
+        if (f.max() == 0.0f) return f;
     }
     return f;
 }
@@ -450,7 +450,7 @@ void BidirectionalRenderer::write_path_contribution(const PathContribution &pc, 
                 P(cont.c);
                 continue;
             }
-            if (luminance_clamping > 0 && max_component(cont.c) > luminance_clamping) {
+            if (luminance_clamping > 0 && cont.c.max() > luminance_clamping) {
                 P(cont.c);
                 continue;
             }

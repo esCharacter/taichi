@@ -120,7 +120,7 @@ public:
             }
             bsdf.sample(in_dir, rand(), rand(), out_dir, f, pdf, event);
             Vector3 color = f * bsdf.cos_theta(out_dir) / pdf;
-            real p = max_component(color);
+            real p = color.max();
             if (p < 1 && rand() < p) {
                 flux = (1.0f / p) * flux;
             } else {

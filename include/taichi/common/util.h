@@ -83,16 +83,10 @@ typedef float real;
 
 void print_traceback();
 
-template<typename T, typename U>
-struct is_type_same : std::false_type { };
-
 template<typename T>
-struct is_type_same<T, T> : std::true_type { };
+inline void print(T t) {
+    std::cout << t << std::endl;
+}
 
-template<typename T, typename U>
-constexpr bool same_type() { return is_type_same<T, U>::value; }
-
-template<typename T, typename U>
-constexpr bool same_type(const U &u) { return is_type_same<T, U>::value; }
 
 TC_NAMESPACE_END

@@ -14,11 +14,11 @@
 TC_NAMESPACE_BEGIN
 
 #define TC_MPM3D_PREPROCESS_STAGED_KERNELS\
-    Vector4s w_stages[3][kernel_size]; \
+    Vector4 w_stages[3][kernel_size]; \
     for (int k = 0; k < kernel_size; k++) { \
-        w_stages[0][k] = Vector4s(dw_cache[0][k], w_cache[0][k], w_cache[0][k], w_cache[0][k]); \
-        w_stages[1][k] = Vector4s(w_cache[1][k], dw_cache[1][k], w_cache[1][k], w_cache[1][k]); \
-        w_stages[2][k] = Vector4s(w_cache[2][k], w_cache[2][k], dw_cache[2][k], w_cache[2][k]); \
+        w_stages[0][k] = Vector4(dw_cache[0][k], w_cache[0][k], w_cache[0][k], w_cache[0][k]); \
+        w_stages[1][k] = Vector4(w_cache[1][k], dw_cache[1][k], w_cache[1][k], w_cache[1][k]); \
+        w_stages[2][k] = Vector4(w_cache[2][k], w_cache[2][k], dw_cache[2][k], w_cache[2][k]); \
     }
 
 #define TC_MPM3D_KERNEL_ORDER 2
@@ -33,16 +33,16 @@ int MPM<3>::get_stencil_start(real x) const {
 }
 
 #define TC_MPM3D_PREPROCESS_KERNELS\
-    Vector4s w_cache[DIM]; \
-    Vector4s dw_cache[DIM];\
+    Vector4 w_cache[DIM]; \
+    Vector4 dw_cache[DIM];\
     Vector p_fract = fract(p.pos - 0.5f); \
     for (int k = 0; k < DIM; k++) { \
-        const Vector4s t = Vector4s(p_fract[k]) - Vector4s(-0.5f, 0.5f, 1.5f); \
+        const Vector4 t = Vector4(p_fract[k]) - Vector4(-0.5f, 0.5f, 1.5f, 0.0f); \
         auto tt = t * t; \
-        w_cache[k] = Vector4s(0.5, -1, 0.5) * tt + \
-            Vector4s(-1.5, 0, 1.5) * t + \
-            Vector4s(1.125f, 0.75f, 1.125f); \
-        dw_cache[k] = Vector4s(-1, 2, -1) * t + Vector4s(1.5f, 0, -1.5f); \
+        w_cache[k] = Vector4(0.5f, -1.0f, 0.5f, 0.0f) * tt + \
+            Vector4(-1.5, 0, 1.5, 0.0f) * t + \
+            Vector4(1.125f, 0.75f, 1.125f, 0.0f); \
+        dw_cache[k] = Vector4(-1.0f, 2.0f, -1.0f, 0.0f) * t + Vector4(1.5f, 0, -1.5f, 0.0f); \
     } \
     TC_MPM3D_PREPROCESS_STAGED_KERNELS
 
@@ -55,20 +55,20 @@ int MPM<3>::get_stencil_start(real x) const {
 }
 
 #define TC_MPM3D_PREPROCESS_KERNELS\
-    Vector4s w_cache[DIM]; \
-    Vector4s dw_cache[DIM];\
+    Vector4 w_cache[DIM]; \
+    Vector4 dw_cache[DIM];\
     Vector p_fract = fract(p.pos); \
     for (int k = 0; k < DIM; k++) { \
-        const Vector4s t = Vector4s(p_fract[k]) - Vector4s(-1, 0, 1, 2); \
+        const Vector4 t = Vector4(p_fract[k]) - Vector4(-1, 0, 1, 2); \
         auto tt = t * t; \
         auto ttt = tt * t; \
-        w_cache[k] = Vector4s(-1 / 6.0f, 0.5f, -0.5f, 1 / 6.0f) * ttt + \
-        Vector4s(1, -1, -1, 1) * tt + \
-        Vector4s(-2, 0, 0, 2) * t + \
-        Vector4s(4 / 3.0f, 2 / 3.0f, 2 / 3.0f, 4 / 3.0f); \
-        dw_cache[k] = Vector4s(-0.5f, 1.5f, -1.5f, 0.5f) * tt + \
-        Vector4s(2, -2, -2, 2) * t + \
-        Vector4s(-2, 0, 0, 2); \
+        w_cache[k] = Vector4(-1 / 6.0f, 0.5f, -0.5f, 1 / 6.0f) * ttt + \
+        Vector4(1, -1, -1, 1) * tt + \
+        Vector4(-2, 0, 0, 2) * t + \
+        Vector4(4 / 3.0f, 2 / 3.0f, 2 / 3.0f, 4 / 3.0f); \
+        dw_cache[k] = Vector4(-0.5f, 1.5f, -1.5f, 0.5f) * tt + \
+        Vector4(2, -2, -2, 2) * t + \
+        Vector4(-2, 0, 0, 2); \
     } \
     TC_MPM3D_PREPROCESS_STAGED_KERNELS
 

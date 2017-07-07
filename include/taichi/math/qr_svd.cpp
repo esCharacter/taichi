@@ -87,7 +87,7 @@ void ensure_non_negative_singular_values(Matrix3 &u, Matrix3 &s) {
 
 // m can not be const here, otherwise JIXIE::singularValueDecomposition will cause a error due to const_cast
 void imp_svd(Matrix2 m, Matrix2 &u, Matrix2 &s, Matrix2 &v) {
-    if (frobenius_norm2(m - Matrix2(Vector2(m[0][0], m[1][1]))) < 1e-7f) {
+    if ((m - Matrix2(Vector2(m[0][0], m[1][1]))).frobenius_norm2() < 1e-7f) {
         s = m;
         u = v = Matrix2(1);
     } else {
@@ -130,7 +130,7 @@ void svd(Matrix3 m, Matrix3 &u, Matrix3 &sig, Matrix3 &v) {
 #ifdef TC_USE_EIGEN_SVD
     eigen_svd(m, u, sig, v);
 #else
-    if (frobenius_norm2(m - Matrix3(Vector3(m[0][0], m[1][1], m[2][2]))) < 1e-7f) {
+    if ((m - Matrix3(Vector3(m[0][0], m[1][1], m[2][2]))).frobenius_norm2() < 1e-7f) {
         // QR_SVD crashes in this case...
         sig = m;
         u = v = Matrix3(1);

@@ -133,7 +133,7 @@ void MPM<DIM>::resample() {
         alpha_delta_t = 0;
     parallel_for_each_active_particle([&](Particle &p) {
         real delta_t = base_delta_t * (current_t_int - p.last_update);
-        Vector4s v(0.0f), bv(0.0f);
+        Vector v(0.0f), bv(0.0f);
         Matrix b(0.0f);
         Matrix cdg(0.0f);
         Vector pos = p.pos;
@@ -144,56 +144,56 @@ void MPM<DIM>::resample() {
         // TODO: FLIP velocity sample is temporarily disabled
         for (int i = 0; i < kernel_size; i++) {
             for (int j = 0; j < kernel_size; j++) {
-                // Note: forth coordinate of the second parameter to Matrix3s::outer_product
+                // Note: forth coordinate of the second parameter to Matrix3::outer_product
                 // is ignored.
                 //
                 int k;
 
                 k = 0;
                 Vector *grid_velocity_ptr = &grid_velocity[x_min + i][y_min + j][z_min];
-                Vector4s dpos = Vector(x_min + i, y_min + j, z_min) - pos;
+                Vector3 dpos = Vector3(x_min + i, y_min + j, z_min) - pos;
 
-                Vector4s dw_2 = w_stages[0][i] * w_stages[1][j];
-                Vector4s dw_w = dw_2 * w_stages[2][k];
-                Vector4s grid_vel = grid_velocity_ptr[k];
+                Vector4 dw_2 = w_stages[0][i] * w_stages[1][j];
+                Vector4 dw_w = dw_2 * w_stages[2][k];
+                Vector grid_vel = grid_velocity_ptr[k];
                 v += dw_w[3] * grid_vel;
-                b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
-                cdg += Matrix3s::outer_product(dw_w, grid_vel);
+                b += Matrix3::outer_product(dpos, dw_w[3] * grid_vel);
+                cdg += Matrix3::outer_product(Vector3(dw_w), grid_vel);
 
                 if (kernel_size >= 2) {
                     k = 1;
-                    dpos += Vector4s(0.0f, 0.0f, 1.0f, 0.0f);
+                    dpos += Vector(0.0f, 0.0f, 1.0f);
                     dw_w = dw_2 * w_stages[2][k];
                     grid_vel = grid_velocity_ptr[k];
                     v += dw_w[3] * grid_vel;
-                    b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
-                    cdg += Matrix3s::outer_product(dw_w, grid_vel);
+                    b += Matrix3::outer_product(dpos, dw_w[3] * grid_vel);
+                    cdg += Matrix3::outer_product(Vector(dw_w), grid_vel);
                 }
 
                 if (kernel_size >= 3) {
                     k = 2;
-                    dpos += Vector4s(0.0f, 0.0f, 1.0f, 0.0f);
+                    dpos += Vector(0.0f, 0.0f, 1.0f);
                     dw_w = dw_2 * w_stages[2][k];
                     grid_vel = grid_velocity_ptr[k];
                     v += dw_w[3] * grid_vel;
-                    b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
-                    cdg += Matrix3s::outer_product(dw_w, grid_vel);
+                    b += Matrix3::outer_product(dpos, dw_w[3] * grid_vel);
+                    cdg += Matrix3::outer_product(Vector(dw_w), grid_vel);
                 }
 
                 if (kernel_size >= 4) {
                     k = 3;
-                    dpos += Vector4s(0.0f, 0.0f, 1.0f, 0.0f);
+                    dpos += Vector(0.0f, 0.0f, 1.0f);
                     dw_w = dw_2 * w_stages[2][k];
                     grid_vel = grid_velocity_ptr[k];
                     v += dw_w[3] * grid_vel;
-                    b += Matrix3s::outer_product(dpos, dw_w[3] * grid_vel);
-                    cdg += Matrix3s::outer_product(dw_w, grid_vel);
+                    b += Matrix3::outer_product(dpos, dw_w[3] * grid_vel);
+                    cdg += Matrix3::outer_product(Vector(dw_w), grid_vel);
                 }
             }
         }
         // cdg = cdg.transposed();
         if (!apic) {
-            b = Matrix(0);
+            b = Matrix(0.0f);
         }
         // We should use an std::exp here, but that is too slow...
         real damping = std::max(0.0f, 1.0f - delta_t * affine_damping);
@@ -203,9 +203,9 @@ void MPM<DIM>::resample() {
         // APIC part + FLIP part
         p.v = (1 - alpha_delta_t) * v + alpha_delta_t * (v - bv + p.v);
 #else
-        p.v = v.to_vec3();
+        p.v = Vector3(v);
 #endif
-        Matrix3s dg = cdg * p.dg_e * Matrix3s(p.dg_p);
+        Matrix3 dg = cdg * p.dg_e * Matrix3(p.dg_p);
 #ifdef CV_ON
         if (abnormal(dg) || abnormal(cdg) || abnormal(p.dg_e) || abnormal(p.dg_cache)) {
             P(dg);
@@ -239,7 +239,7 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
             p.calculate_force();
         });
     }
-    TC_PROFILE("reset velocity_and_mass", grid_velocity_and_mass.reset(Vector4s(0.0f)));
+    TC_PROFILE("reset velocity_and_mass", grid_velocity_and_mass.reset(Vector4(0.0f)));
     TC_PROFILE("reset velocity", grid_velocity.reset(Vector(0.0f)));
     TC_PROFILE("reset mass", grid_mass.reset(0.0f));
     {
@@ -250,9 +250,9 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
             const real mass = p.mass;
             // We enlarge Matrix 3x3 to Matrix 4x4 for SIMD.
             // It is, however, better to use Matrix 4x3 in the future.
-            const Matrix4s apic_b_inv_d_mass = Matrix4(p.apic_b) * ((6.0f - kernel_size) * mass);
-            const Vector4s mass_v = mass * v;
-            Matrix4s apic_b_inv_d_mass_with_mass_v = apic_b_inv_d_mass;
+            const Matrix4 apic_b_inv_d_mass = Matrix4(p.apic_b) * ((6.0f - kernel_size) * mass);
+            const Vector mass_v = mass * v;
+            Matrix4 apic_b_inv_d_mass_with_mass_v = apic_b_inv_d_mass;
             apic_b_inv_d_mass_with_mass_v[3] = mass_v;
             apic_b_inv_d_mass_with_mass_v[3][3] = mass;
 
@@ -264,22 +264,22 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
             //       0             mass
             // ----------------------------
 
-            const Matrix4s delta_t_tmp_force = delta_t * Matrix4(p.tmp_force);
+            const Matrix4 delta_t_tmp_force = delta_t * Matrix4(p.tmp_force);
             int x_min = get_stencil_start(pos.x);
             int y_min = get_stencil_start(pos.y);
             int z_min = get_stencil_start(pos.z);
             for (int i = 0; i < kernel_size; i++) {
                 for (int j = 0; j < kernel_size; j++) {
                     // v_contribution = v + 3 * apic_b * d_pos;
-                    // Vector4s rast_v = mass_v + (apic_b_inv_d_mass * d_pos);
+                    // Vector4 rast_v = mass_v + (apic_b_inv_d_mass * d_pos);
 
-                    const Vector4s dw_2 = w_stages[0][i] * w_stages[1][j];
-                    Vector4s *ptr = &grid_velocity_and_mass[x_min + i][y_min + j][z_min];
+                    const VectorP dw_2 = w_stages[0][i] * w_stages[1][j];
+                    VectorP *ptr = &grid_velocity_and_mass[x_min + i][y_min + j][z_min];
 
-                    const Vector4s d_pos = Vector4s(x_min + i, y_min + j, z_min, 1.0) - pos;
+                    const VectorP d_pos = VectorP(x_min + i, y_min + j, z_min, 1.0f) - VectorP(pos);
 
-                    Vector4s base_vel_and_mass = apic_b_inv_d_mass_with_mass_v * d_pos;
-                    Vector4s dw_w = dw_2 * w_stages[2][0];
+                    VectorP base_vel_and_mass = apic_b_inv_d_mass_with_mass_v * d_pos;
+                    VectorP dw_w = dw_2 * w_stages[2][0];
                     *ptr += dw_w[3] * base_vel_and_mass +
                             delta_t_tmp_force.multiply_vec3(dw_w);
                     ptr += 1;

@@ -154,7 +154,7 @@ public:
             //P(p.position);
         }
         lower_corner = lower;
-        int intervals = (int)std::ceil(max_component(upper - lower) / resolution);
+        int intervals = (int)std::ceil((upper - lower).max() / resolution);
         total_levels = 0;
         for (int i = 1; i < intervals; i *= 2, total_levels++);
         // We do not use the 0th node...

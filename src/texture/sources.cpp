@@ -291,7 +291,7 @@ public:
 
     virtual Vector4 sample(const Vector3 &coord_) const override {
         Vector4 coord(coord_, 0.0f);
-        return base + floor(coord * steps) * increment;
+        return base + (coord * steps).floor() * increment;
     }
 };
 

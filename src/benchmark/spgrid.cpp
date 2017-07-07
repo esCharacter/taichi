@@ -302,10 +302,10 @@ protected:
 
 public:
     bool test() const override {
-        SPGrid <Vector4s> grid;
+        SPGrid <Vector4> grid;
         for (int i = 0; i < 100; i++) {
             //P(grid.map_coord(i, i, i));
-            grid(i, i, i) = Vector4s(i);
+            grid(i, i, i) = Vector4(i);
         }
         for (int i = 0; i < 100; i += 10) {
             P(grid(i, i, i));

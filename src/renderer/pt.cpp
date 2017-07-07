@@ -113,7 +113,7 @@ protected:
             Ray ray(info.pos + out_dir * 1e-3f, out_dir);
             IntersectionInfo test_info;
             Vector3 att = get_attenuation(stack, ray, rand, test_info);
-            if (max_component(att) == 0.0f) {
+            if (att.max() == 0.0f) {
                 // Completely blocked.
                 continue;
             }
@@ -328,7 +328,7 @@ Vector3 PathTracingRenderer::calculate_volumetric_direct_lighting(const Vector3 
         Ray ray(orig + out_dir * 1e-3f, out_dir);
         IntersectionInfo test_info;
         Vector3 att = get_attenuation(stack, ray, rand, test_info);
-        if (max_component(att) == 0.0f) {
+        if (att.max() == 0.0f) {
             // Completely blocked.
             continue;
         }
