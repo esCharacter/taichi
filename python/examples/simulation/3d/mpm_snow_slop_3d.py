@@ -69,11 +69,6 @@ def render_sand_frame(frame, d, t):
 
 
 if __name__ == '__main__':
-    v = Vectori(1, 2, 3)
-    print v
-    print v.y
-
-
     downsample = grid_downsample
     resolution = (255 / downsample, 255 / downsample, 255 / downsample)
 

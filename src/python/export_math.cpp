@@ -130,9 +130,14 @@ std::string get_type_short_name<int64>() { return "I"; }
 template <>
 std::string get_type_short_name<uint64>() { return "U"; }
 
+template <typename T>
+struct get_dim {
+
+};
+
 template <int DIM, typename T, InstructionSetExtension ISE>
-constexpr int get_dim(VectorND<DIM, T, ISE>) {
-    return DIM;
+struct get_dim<VectorND<DIM, T, ISE>> {
+    constexpr static int value = DIM;
 };
 
 template <int DIM, typename T>
@@ -154,36 +159,46 @@ struct VectorInitializer<4, T> {
     static auto get() { return py::init<T, T, T, T>(); }
 };
 
-template <typename VEC, typename Class>
-void register_x(Class &cls) {}
 
-template <typename VEC, typename Class, std::enable_if_t<get_dim(VEC()) >= 1, int> = 0>
-void register_x(Class &cls) {
-    cls.def_readwrite("x", &VEC::x);
-}
+template <int i, typename VEC>
+struct get_vec_field {};
 
-template <typename VEC, typename Class>
-void register_y(Class &cls) {}
+template <typename VEC>
+struct get_vec_field<0, VEC> {
+    static auto get() {
+        return &VEC::x;
+    }
+};
 
-template <typename VEC, typename Class, std::enable_if_t<get_dim(VEC()) >= 2, int> = 0>
-void register_y(Class &cls) {
-    cls.def_readwrite("y", &VEC::y);
-}
+template <typename VEC>
+struct get_vec_field<1, VEC> {
+    static auto get() {
+        return &VEC::y;
+    }
+};
 
-template <typename VEC, typename Class>
-void register_z(Class &cls) {}
+template <typename VEC>
+struct get_vec_field<2, VEC> {
+    static auto get() {
+        return &VEC::z;
+    }
+};
 
-template <typename VEC, typename Class, std::enable_if_t<get_dim(VEC()) >= 3, int> = 0>
-void register_z(Class &cls) {
-    cls.def_readwrite("z", &VEC::z);
-}
+template <typename VEC>
+struct get_vec_field<3, VEC> {
+    static auto get() {
+        return &VEC::w;
+    }
+};
 
-template <typename VEC, typename Class>
-void register_w(Class &cls) {}
 
-template <typename VEC, typename Class, std::enable_if_t<get_dim(VEC()) >= 4, int> = 0>
-void register_w(Class &cls) {
-    cls.def_readwrite("w", &VEC::w);
+template <int i, typename VEC, typename Class, std::enable_if_t<get_dim<VEC>::value < i + 1, int> = 0>
+void register_vec_field(Class &cls) {}
+
+template <int i, typename VEC, typename Class, std::enable_if_t<get_dim<VEC>::value >= i + 1, int> = 0>
+void register_vec_field(Class &cls) {
+    static const char *names[4] = {"x", "y", "z", "w"};
+    cls.def_readwrite(names[i], get_vec_field<i, VEC>::get());
 }
 
 template <typename T>
@@ -213,12 +228,12 @@ struct VectorRegistration<VectorND<DIM, T, ISE>> {
                 .def(-py::self)
                 .def(py::self * py::self)
                 .def(py::self / py::self);
-        register_x<Vector>(cls);
-        register_y<Vector>(cls);
-        register_z<Vector>(cls);
-        register_w<Vector>(cls);
+        register_vec_field<0, Vector>(cls);
+        register_vec_field<1, Vector>(cls);
+        register_vec_field<2, Vector>(cls);
+        register_vec_field<3, Vector>(cls);
 
-        DEFINE_VECTOR_OF_NAMED(Vector, vector_name.c_str());
+        DEFINE_VECTOR_OF_NAMED(Vector, (vector_name + "List").c_str());
     }
 };
 
@@ -325,7 +340,6 @@ void export_math(py::module &m) {
                     //.def(py::self + py::self)
                     //.def(py::self - py::self)
                     //.def(py::self * py::self)
-                    //.def(py::self / py::self)
             .def("translate", &matrix4_translate)
             .def("scale", &matrix4_scale)
             .def("scale_s", &matrix4_scale_s)
@@ -338,14 +352,21 @@ void export_math(py::module &m) {
 
     m.def("gaussian_blur_2d_real", gaussian_blur<real>);
 
+    VectorRegistration<Vector1>::run(m);
+    VectorRegistration<Vector2>::run(m);
+    VectorRegistration<Vector3>::run(m);
+    VectorRegistration<Vector4>::run(m);
+
+    VectorRegistration<Vector1d>::run(m);
+    VectorRegistration<Vector2d>::run(m);
+    VectorRegistration<Vector3d>::run(m);
+    VectorRegistration<Vector4d>::run(m);
+
+    VectorRegistration<Vector1i>::run(m);
     VectorRegistration<Vector2i>::run(m);
     VectorRegistration<Vector3i>::run(m);
     VectorRegistration<Vector4i>::run(m);
 
-    VectorRegistration<Vector2>::run(m);
-    // TODO
-    // VectorRegistration<Vector3>::run(m);
-    // VectorRegistration<Vector4>::run(m);
 
     DEFINE_VECTOR_OF(real);
     DEFINE_VECTOR_OF(int);

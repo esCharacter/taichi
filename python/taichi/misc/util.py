@@ -65,26 +65,28 @@ def Vectori(*args):
         return tc_core.Vector2i(int(args[0]), int(args[1]))
     elif len(args) == 3:
         return tc_core.Vector3i(int(args[0]), int(args[1]), int(args[2]))
+    elif len(args) == 4:
+        return tc_core.Vector4i(int(args[0]), int(args[1]), int(args[2]), int(args[3]))
     else:
         assert False, type(args[0])
 
 
 def Vector(*args):
     from taichi.core import tc_core
-    if isinstance(args[0], tc_core.Vector2):
+    if isinstance(args[0], tc_core.Vector2f):
         return args[0]
-    if isinstance(args[0], tc_core.Vector3):
+    if isinstance(args[0], tc_core.Vector3f):
         return args[0]
-    if isinstance(args[0], tc_core.Vector4):
+    if isinstance(args[0], tc_core.Vector4f):
         return args[0]
     if isinstance(args[0], tuple):
         args = tuple(*args)
     if len(args) == 2:
-        return tc_core.Vector2(float(args[0]), float(args[1]))
+        return tc_core.Vector2f(float(args[0]), float(args[1]))
     elif len(args) == 3:
-        return tc_core.Vector3(float(args[0]), float(args[1]), float(args[2]))
+        return tc_core.Vector3f(float(args[0]), float(args[1]), float(args[2]))
     elif len(args) == 4:
-        return tc_core.Vector4(float(args[0]), float(args[1]), float(args[2]), float(args[3]))
+        return tc_core.Vector4f(float(args[0]), float(args[1]), float(args[2]), float(args[3]))
     else:
         assert False, type(args[0])
 
