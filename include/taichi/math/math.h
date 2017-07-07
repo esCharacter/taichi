@@ -451,32 +451,32 @@ inline int64 get_largest_pot(int64 a) {
     return i;
 }
 
-inline MatrixND<2, float32, InstructionSet::AVX> inversed(const MatrixND<2, float32, InstructionSet::AVX> &mat) {
+inline MatrixND<2, float32, InstructionSetExtension::AVX> inversed(const MatrixND<2, float32, InstructionSetExtension::AVX> &mat) {
     real det = determinant(mat);
-    return 1.0f / det * MatrixND<2, float32, InstructionSet::AVX>(
-            VectorND<2, float32, InstructionSet::AVX>(mat[1][1], -mat[0][1]),
-            VectorND<2, float32, InstructionSet::AVX>(mat[1][0], mat[0][0]
+    return 1.0f / det * MatrixND<2, float32, InstructionSetExtension::AVX>(
+            VectorND<2, float32, InstructionSetExtension::AVX>(mat[1][1], -mat[0][1]),
+            VectorND<2, float32, InstructionSetExtension::AVX>(mat[1][0], mat[0][0]
             )
     );
 }
 
-inline MatrixND<3, float32, InstructionSet::AVX> inversed(const MatrixND<3, float32, InstructionSet::AVX> &mat) {
+inline MatrixND<3, float32, InstructionSetExtension::AVX> inversed(const MatrixND<3, float32, InstructionSetExtension::AVX> &mat) {
     real det = determinant(mat);
-    return 1.0f / det * MatrixND<3, float32, InstructionSet::AVX>(
-            VectorND<3, float32, InstructionSet::AVX>(mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2],
+    return 1.0f / det * MatrixND<3, float32, InstructionSetExtension::AVX>(
+            VectorND<3, float32, InstructionSetExtension::AVX>(mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2],
                                                       mat[2][1] * mat[0][2] - mat[0][1] * mat[2][2],
                                                       mat[0][1] * mat[1][2] - mat[1][1] * mat[0][2]),
-            VectorND<3, float32, InstructionSet::AVX>(mat[2][0] * mat[1][2] - mat[1][0] * mat[2][2],
+            VectorND<3, float32, InstructionSetExtension::AVX>(mat[2][0] * mat[1][2] - mat[1][0] * mat[2][2],
                                                       mat[0][0] * mat[2][2] - mat[2][0] * mat[0][2],
                                                       mat[1][0] * mat[0][2] - mat[0][0] * mat[1][2]),
-            VectorND<3, float32, InstructionSet::AVX>(mat[1][0] * mat[2][1] - mat[2][0] * mat[1][1],
+            VectorND<3, float32, InstructionSetExtension::AVX>(mat[1][0] * mat[2][1] - mat[2][0] * mat[1][1],
                                                       mat[2][0] * mat[0][1] - mat[0][0] * mat[2][1],
                                                       mat[0][0] * mat[1][1] - mat[1][0] * mat[0][1])
     );
 }
 
 template <typename T>
-inline MatrixND<4, T, InstructionSet::AVX> inversed(const MatrixND<4, T, InstructionSet::AVX> &m) {
+inline MatrixND<4, T, InstructionSetExtension::AVX> inversed(const MatrixND<4, T, InstructionSetExtension::AVX> &m) {
     // This function is copied from GLM
     /*
     ================================================================================
@@ -561,7 +561,7 @@ inline MatrixND<4, T, InstructionSet::AVX> inversed(const MatrixND<4, T, Instruc
     T Coef22 = m[1][0] * m[3][1] - m[3][0] * m[1][1];
     T Coef23 = m[1][0] * m[2][1] - m[2][0] * m[1][1];
 
-    using Vector = VectorND<4, T, InstructionSet::AVX>;
+    using Vector = VectorND<4, T, InstructionSetExtension::AVX>;
 
     Vector Fac0(Coef00, Coef00, Coef02, Coef03);
     Vector Fac1(Coef04, Coef04, Coef06, Coef07);
@@ -582,7 +582,7 @@ inline MatrixND<4, T, InstructionSet::AVX> inversed(const MatrixND<4, T, Instruc
 
     Vector SignA(+1, -1, +1, -1);
     Vector SignB(-1, +1, -1, +1);
-    MatrixND<4, T, InstructionSet::AVX> Inverse(Inv0 * SignA, Inv1 * SignB, Inv2 * SignA, Inv3 * SignB);
+    MatrixND<4, T, InstructionSetExtension::AVX> Inverse(Inv0 * SignA, Inv1 * SignB, Inv2 * SignA, Inv3 * SignB);
 
     Vector Row0(Inverse[0][0], Inverse[1][0], Inverse[2][0], Inverse[3][0]);
 
@@ -594,17 +594,18 @@ inline MatrixND<4, T, InstructionSet::AVX> inversed(const MatrixND<4, T, Instruc
     return Inverse * OneOverDeterminant;
 }
 
-template <int DIM, typename T, InstructionSet ISA>
-inline MatrixND<DIM, T, ISA> inverse(const MatrixND<DIM, T, ISA> &m) {
+template <int DIM, typename T, InstructionSetExtension ISE>
+inline MatrixND<DIM, T, ISE> inverse(const MatrixND<DIM, T, ISE> &m) {
     return inversed(m);
 };
 
-template <int DIM, typename T, InstructionSet ISA>
-inline VectorND<DIM, T, ISA> floor(const VectorND<DIM, T, ISA> &v) {
-    VectorND<DIM, T, ISA> ret;
+template <int DIM, typename T, InstructionSetExtension ISE>
+inline VectorND<DIM, T, ISE> floor(const VectorND<DIM, T, ISE> &v) {
+    VectorND<DIM, T, ISE> ret;
     for (int i = 0; i < DIM; i++) {
         ret[i] = floor(v[i]);
     }
+    return ret;
 }
 
 //#define rand frand

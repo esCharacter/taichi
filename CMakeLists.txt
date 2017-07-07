@@ -11,13 +11,17 @@ if (MINGW)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libgcc")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
-endif()
+endif ()
 
 if (MSVC)
     link_directories(${CMAKE_CURRENT_SOURCE_DIR}/external/lib)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP /Z7 /D \"_CRT_SECURE_NO_WARNINGS\"  /arch:AVX -DGL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED")
-else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -march=native -DGL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED")
+    set(CMAKE_CXX_FLAGS
+            "${CMAKE_CXX_FLAGS} /MP /Z7 /D \"_CRT_SECURE_NO_WARNINGS\" /arch:AVX\
+            -DGL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED")
+else ()
+    set(CMAKE_CXX_FLAGS
+            "${CMAKE_CXX_FLAGS} -std=c++14 -march=native\
+            -DGL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED")
 endif ()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTC_PASS_EXCEPTION_TO_PYTHON")
@@ -25,24 +29,24 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTC_PASS_EXCEPTION_TO_PYTHON")
 if (TC_DISABLE_SSE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTC_DISABLE_SSE")
     message("SSE Disabled")
-endif()
+endif ()
 
 if (TC_USE_MPI)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTC_USE_MPI")
     message("Using MPI")
-endif()
+endif ()
 
 if (TC_USE_OPENMP)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTC_USE_OPENMP")
     message("Using OpenMP")
     if (APPLE)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp=libiomp5")
-    elseif(MSVC)
+    elseif (MSVC)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /openmp")
-    else()
+    else ()
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
-    endif()
-endif()
+    endif ()
+endif ()
 
 if (USE_OPENGL)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTC_USE_OPENGL")
@@ -77,12 +81,22 @@ if (WIN32)
     find_package(PythonLibs 2.7 REQUIRED)
 else ()
     execute_process(COMMAND ${PYTHON_EXECUTABLE} --version)
-    execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "import sys; from distutils import sysconfig; sys.stdout.write((sysconfig.get_config_var('INCLUDEDIR') + '/python2.7/' if sysconfig.get_config_var('INCLUDEDIR') is not None else None) or sysconfig.get_python_inc())"
+    execute_process(COMMAND ${PYTHON_EXECUTABLE} -c
+            "import sys;\
+            from distutils import sysconfig;\
+            sys.stdout.write(\
+            (sysconfig.get_config_var('INCLUDEDIR') + '/python2.7/'\
+            if sysconfig.get_config_var('INCLUDEDIR') is not None else None)\
+            or sysconfig.get_python_inc())"
             OUTPUT_VARIABLE PYTHON_INCLUDE_DIRS)
-    execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "import sys; from distutils import sysconfig; sys.stdout.write(sysconfig.get_config_var('LIBDIR') or sysconfig.get_python_lib())"
+    execute_process(COMMAND ${PYTHON_EXECUTABLE} -c
+            "import sys;\
+            from distutils import sysconfig;\
+            sys.stdout.write(sysconfig.get_config_var('LIBDIR') or sysconfig.get_python_lib())"
             OUTPUT_VARIABLE PYTHON_LIBRARY_DIR)
 
-    find_library(PYTHON_LIBRARY NAMES python2.7 PATHS ${PYTHON_LIBRARY_DIR} NO_DEFAULT_PATH NO_SYSTEM_ENVIRONMENT_PATH PATH_SUFFIXES x86_64-linux-gnu)
+    find_library(PYTHON_LIBRARY NAMES python2.7 PATHS ${PYTHON_LIBRARY_DIR}
+            NO_DEFAULT_PATH NO_SYSTEM_ENVIRONMENT_PATH PATH_SUFFIXES x86_64-linux-gnu)
     set(PYTHON_LIBRARIES ${PYTHON_LIBRARY})
 endif ()
 
@@ -90,21 +104,24 @@ include_directories(${PYTHON_INCLUDE_DIRS})
 message("    include: ${PYTHON_INCLUDE_DIRS}")
 message("    library: ${PYTHON_LIBRARIES}")
 
-execute_process(COMMAND python -c "import numpy.distutils, sys; sys.stdout.write(':'.join(numpy.distutils.misc_util.get_numpy_include_dirs()))"
+execute_process(COMMAND python -c
+        "import numpy.distutils, sys;\
+        sys.stdout.write(':'.join(numpy.distutils.misc_util.get_numpy_include_dirs()))"
         OUTPUT_VARIABLE PYTHON_NUMPY_INCLUDE_DIR)
 
 message("    numpy include: ${PYTHON_NUMPY_INCLUDE_DIR}")
 include_directories(${PYTHON_NUMPY_INCLUDE_DIR})
 
-execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "import sys; import pybind11; sys.stdout.write(pybind11.get_include())"
+execute_process(COMMAND ${PYTHON_EXECUTABLE} -c
+        "import sys; import pybind11; sys.stdout.write(pybind11.get_include())"
         OUTPUT_VARIABLE PYBIND11_INCLUDE_DIR
         RESULT_VARIABLE PYBIND11_IMPORT_RET)
 if (NOT PYBIND11_IMPORT_RET)
     # returns zero if success
     message("    pybind11 include: " ${PYBIND11_INCLUDE_DIR})
-else()
+else ()
     message(FATAL_ERROR "Can not import pybind11. Please install. ([sudo] pip install pybind11)")
-endif()
+endif ()
 
 include_directories(${PYBIND11_INCLUDE_DIR})
 
@@ -114,13 +131,14 @@ message("Embree")
 message("    include: " ${EMBREE_INCLUDE_PATH})
 message("    library: " ${EMBREE_LIBRARY})
 
-include_directories(include)
+include_directories(include) # The folder is more than 'include'...
 include_directories(external/include)
 
 file(GLOB TAICHI_SOURCE
-        "src/*/*/*/*.cpp" "src/*/*/*.cpp" "src/*/*.cpp" "src/*.cpp" "src/*/*/*/*.h" "src/*/*/*.h" "src/*/*.h" "src/*.h"
-        "include/taichi/*/*/*/*.cpp" "include/taichi/*/*/*.cpp" "include/taichi/*/*.cpp" "include/taichi/*.cpp"
-        "include/taichi/*/*/*/*.h" "include/taichi/*/*/*.h" "include/taichi/*/*.h" "include/taichi/*.h")
+        "src/*/*/*/*.cpp" "src/*/*/*.cpp" "src/*/*.cpp" "src/*.cpp"
+        "src/*/*/*/*.h" "src/*/*/*.h" "src/*/*.h" "src/*.h"
+        "include/taichi/*/*/*/*.cpp" "include/taichi/*/*/*.cpp" "include/taichi/*/*.cpp"
+        "include/taichi/*/*/*/*.h" "include/taichi/*/*/*.h" "include/taichi/*/*.h")
 
 set(CORE_LIBRARY_NAME taichi_core)
 add_library(${CORE_LIBRARY_NAME} SHARED ${TAICHI_SOURCE})
@@ -133,7 +151,7 @@ endif ()
 
 if (MINGW)
     target_link_libraries(${CORE_LIBRARY_NAME} ws2_32)
-endif()
+endif ()
 
 if (USE_OPENGL)
     target_link_libraries(${CORE_LIBRARY_NAME} ${GLEW_LIBRARY})
@@ -151,7 +169,7 @@ target_link_libraries(${CORE_LIBRARY_NAME} ${EMBREE_LIBRARY})
 target_link_libraries(${CORE_LIBRARY_NAME} ${PYTHON_LIBRARIES})
 
 foreach (source IN LISTS TAICHI_SOURCE)
-	file(RELATIVE_PATH source_rel ${CMAKE_CURRENT_LIST_DIR} ${source})
+    file(RELATIVE_PATH source_rel ${CMAKE_CURRENT_LIST_DIR} ${source})
     get_filename_component(source_path "${source_rel}" PATH)
     string(REPLACE "/" "\\" source_path_msvc "${source_path}")
     source_group("${source_path_msvc}" FILES "${source}")
@@ -162,5 +180,9 @@ if (MSVC)
 endif ()
 
 if (WIN32)
-    set_target_properties(${CORE_LIBRARY_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/runtimes")
+    set_target_properties(${CORE_LIBRARY_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY
+            "${CMAKE_CURRENT_SOURCE_DIR}/runtimes")
 endif ()
+
+add_executable(taichi include/taichi/main.cpp)
+target_link_libraries(taichi ${CORE_LIBRARY_NAME})

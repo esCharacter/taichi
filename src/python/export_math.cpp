@@ -29,10 +29,10 @@ std::vector<real> make_range(real start, real end, real delta) {
     return std::vector<real> {start, end, delta};
 }
 
-template<typename T, int ret>
+template <typename T, int ret>
 int return_constant(T *) { return ret; }
 
-template<typename T, int channels>
+template <typename T, int channels>
 void ndarray_to_image_buffer(T *arr, uint64 input, int width, int height) // 'input' is actually a pointer...
 {
     arr->initialize(width, height);
@@ -81,7 +81,7 @@ Matrix4 matrix4_rotate_euler(Matrix4 *transform, const Vector3 &euler_angles) {
     return ret;
 }
 
-template<typename T, int channels>
+template <typename T, int channels>
 void ndarray_to_array2d(T *arr, long long input, int width, int height) // 'input' is actually a pointer...
 {
     arr->initialize(width, height);
@@ -101,7 +101,7 @@ ndarray_to_array2d_real(Array2D<real> *arr, long long input, int width, int heig
     }
 }
 
-template<typename T, int channels>
+template <typename T, int channels>
 void array2d_to_ndarray(T *arr, uint64 output) // 'output' is actually a pointer...
 {
     int width = arr->get_width(), height = arr->get_height();
@@ -112,7 +112,115 @@ void array2d_to_ndarray(T *arr, uint64 output) // 'output' is actually a pointer
     }
 }
 
-;
+template <typename T>
+constexpr std::string get_type_short_name();
+
+template <>
+std::string get_type_short_name<float32>() { return "f"; }
+
+template <>
+std::string get_type_short_name<float64>() { return "d"; }
+
+template <>
+std::string get_type_short_name<int>() { return "i"; }
+
+template <>
+std::string get_type_short_name<int64>() { return "I"; }
+
+template <>
+std::string get_type_short_name<uint64>() { return "U"; }
+
+template <int DIM, typename T, InstructionSetExtension ISE>
+constexpr int get_dim(VectorND<DIM, T, ISE>) {
+    return DIM;
+};
+
+template <int DIM, typename T>
+struct VectorInitializer {
+};
+
+template <typename T>
+struct VectorInitializer<2, T> {
+    static auto get() { return py::init<T, T>(); }
+};
+
+template <typename T>
+struct VectorInitializer<3, T> {
+    static auto get() { return py::init<T, T, T>(); }
+};
+
+template <typename T>
+struct VectorInitializer<4, T> {
+    static auto get() { return py::init<T, T, T, T>(); }
+};
+
+template <typename VEC, typename Class>
+void register_x(Class &cls) {}
+
+template <typename VEC, typename Class, std::enable_if_t<get_dim(VEC()) >= 1, int> = 0>
+void register_x(Class &cls) {
+    cls.def_readwrite("x", &VEC::x);
+}
+
+template <typename VEC, typename Class>
+void register_y(Class &cls) {}
+
+template <typename VEC, typename Class, std::enable_if_t<get_dim(VEC()) >= 2, int> = 0>
+void register_y(Class &cls) {
+    cls.def_readwrite("y", &VEC::y);
+}
+
+template <typename VEC, typename Class>
+void register_z(Class &cls) {}
+
+template <typename VEC, typename Class, std::enable_if_t<get_dim(VEC()) >= 3, int> = 0>
+void register_z(Class &cls) {
+    cls.def_readwrite("z", &VEC::z);
+}
+
+template <typename VEC, typename Class>
+void register_w(Class &cls) {}
+
+template <typename VEC, typename Class, std::enable_if_t<get_dim(VEC()) >= 4, int> = 0>
+void register_w(Class &cls) {
+    cls.def_readwrite("w", &VEC::w);
+}
+
+template <typename T>
+struct VectorRegistration {
+};
+
+template <int DIM, typename T, InstructionSetExtension ISE>
+struct VectorRegistration<VectorND<DIM, T, ISE>> {
+    static void run(py::module &m) {
+        using VectorBase = VectorNDBase<DIM, T, ISE>;
+        using Vector = VectorND<DIM, T, ISE>;
+
+        // e.g. Vector4f
+        std::string vector_name = std::string("Vector") + std::to_string(DIM) + get_type_short_name<T>();
+        // e.g. Vector4fBase
+        std::string base_name = vector_name + "Base";
+
+        py::class_<VectorBase>(m, base_name.c_str());
+
+        auto cls = py::class_<Vector, VectorBase>(m, vector_name.c_str());
+        cls.def(VectorInitializer<DIM, T>::get())
+                .def(py::self * real())
+                .def(T() * py::self)
+                .def(py::self / real())
+                .def(py::self + py::self)
+                .def(py::self - py::self)
+                .def(-py::self)
+                .def(py::self * py::self)
+                .def(py::self / py::self);
+        register_x<Vector>(cls);
+        register_y<Vector>(cls);
+        register_z<Vector>(cls);
+        register_w<Vector>(cls);
+
+        DEFINE_VECTOR_OF_NAMED(Vector, vector_name.c_str());
+    }
+};
 
 void export_math(py::module &m) {
     m.def("rasterize_levelset", rasterize_levelset);
@@ -139,7 +247,7 @@ void export_math(py::module &m) {
 
     EXPORT_ARRAY_3D_OF(real, 1);
 
-    py::class_<Array2D<Vector3>>(m, "Array2DVector3")
+    py::class_<Array2D<Vector3 >>(m, "Array2DVector3")
             .def(py::init<Vector2i, Vector3>())
             .def("get_width", &Array2D<Vector3>::get_width)
             .def("get_height", &Array2D<Vector3>::get_height)
@@ -153,7 +261,7 @@ void export_math(py::module &m) {
             .def("rasterize_scale", &Array2D<Vector3>::rasterize_scale)
             .def("to_ndarray", &array2d_to_ndarray<Array2D<Vector3>, 3>);
 
-    py::class_<Array2D<Vector4>>(m, "Array2DVector4")
+    py::class_<Array2D<Vector4 >>(m, "Array2DVector4")
             .def(py::init<Vector2i, Vector4>())
             .def("get_width", &Array2D<Vector4>::get_width)
             .def("get_height", &Array2D<Vector4>::get_height)
@@ -166,7 +274,7 @@ void export_math(py::module &m) {
             .def("rasterize_scale", &Array2D<Vector4>::rasterize_scale)
             .def("to_ndarray", &array2d_to_ndarray<Array2D<Vector4>, 4>);
 
-    py::class_<LevelSet2D, Array2D<real>>(m, "LevelSet2D")
+    py::class_<LevelSet2D, Array2D<real >>(m, "LevelSet2D")
             .def(py::init<Vector2i, Vector2>())
             .def("get_width", &LevelSet2D::get_width)
             .def("get_height", &LevelSet2D::get_height)
@@ -214,10 +322,10 @@ void export_math(py::module &m) {
     py::class_<Matrix4>(m, "Matrix4")
             .def(py::init<real>())
             .def(real() * py::self)
-            //.def(py::self + py::self)
-            //.def(py::self - py::self)
-            //.def(py::self * py::self)
-            //.def(py::self / py::self)
+                    //.def(py::self + py::self)
+                    //.def(py::self - py::self)
+                    //.def(py::self * py::self)
+                    //.def(py::self / py::self)
             .def("translate", &matrix4_translate)
             .def("scale", &matrix4_scale)
             .def("scale_s", &matrix4_scale_s)
@@ -227,83 +335,20 @@ void export_math(py::module &m) {
 
     m.def("gaussian_blur_x_2d_real", gaussian_blur_x<real>);
     m.def("gaussian_blur_y_2d_real", gaussian_blur_y<real>);
+
     m.def("gaussian_blur_2d_real", gaussian_blur<real>);
 
-    py::class_<Vector2i>(m, "Vector2i")
-            .def(py::init<int, int>())
-            .def_readwrite("x", &Vector2i::x)
-            .def_readwrite("y", &Vector2i::y)
-            .def(py::self * int())
-            .def(int() * py::self)
-            .def(py::self / int())
-            .def(py::self + py::self)
-            .def(py::self - py::self)
-            .def(py::self * py::self)
-            .def(py::self / py::self);
+    VectorRegistration<Vector2i>::run(m);
+    VectorRegistration<Vector3i>::run(m);
+    VectorRegistration<Vector4i>::run(m);
 
-    py::class_<Vector2>(m, "Vector2")
-            .def(py::init<real, real>())
-            .def_readwrite("x", &Vector2::x)
-            .def_readwrite("y", &Vector2::y)
-            .def(py::self * real())
-            .def(real() * py::self)
-            .def(py::self / real())
-            .def(py::self + py::self)
-            .def(py::self - py::self)
-            .def(py::self * py::self)
-            .def(py::self / py::self);
-
-    py::class_<VectorNDBase<3, int, InstructionSet::AVX>>(m, "Vector3iBase");
-    py::class_<VectorND<3, int, InstructionSet::AVX>, VectorNDBase<3, int, InstructionSet::AVX>>(m, "Vector3i")
-            .def(py::init<int, int, int>())
-            .def_readwrite("x", &Vector3i::x)
-            .def_readwrite("y", &Vector3i::y)
-            .def_readwrite("z", &Vector3i::z)
-            .def(py::self * int())
-            .def(int() * py::self)
-            .def(py::self / int())
-            .def(py::self + py::self)
-            .def(py::self - py::self)
-            .def(py::self * py::self)
-            .def(py::self / py::self);
-
-    py::class_<Vector3>(m, "Vector3")
-            .def(py::init<real, real, real>())
-            .def_readwrite("x", &Vector3::x)
-            .def_readwrite("y", &Vector3::y)
-            .def_readwrite("z", &Vector3::z)
-            .def(py::self * real())
-            .def(real() * py::self)
-            .def(py::self / real())
-            .def(py::self + py::self)
-            .def(py::self - py::self)
-            .def(-py::self)
-            .def(py::self * py::self)
-            .def(py::self / py::self);
-
-    py::class_<Vector4>(m, "Vector4")
-            .def(py::init<real, real, real, real>())
-            .def_readwrite("x", &Vector4::x)
-            .def_readwrite("y", &Vector4::y)
-            .def_readwrite("z", &Vector4::z)
-            .def_readwrite("w", &Vector4::w)
-            .def(py::self * real())
-            .def(real() * py::self)
-            .def(py::self / real())
-            .def(py::self + py::self)
-            .def(py::self - py::self)
-            .def(-py::self)
-            .def(py::self * py::self)
-            .def(py::self / py::self);
+    VectorRegistration<Vector2>::run(m);
+    // TODO
+    // VectorRegistration<Vector3>::run(m);
+    // VectorRegistration<Vector4>::run(m);
 
     DEFINE_VECTOR_OF(real);
     DEFINE_VECTOR_OF(int);
-    DEFINE_VECTOR_OF(Vector2);
-    DEFINE_VECTOR_OF(Vector3);
-    DEFINE_VECTOR_OF(Vector4);
-    DEFINE_VECTOR_OF(Vector2i);
-    DEFINE_VECTOR_OF(Vector3i);
-    DEFINE_VECTOR_OF(Vector4i);
 }
 
 TC_NAMESPACE_END

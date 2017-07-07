@@ -25,21 +25,21 @@ TC_NAMESPACE_BEGIN
 #define TC_ALIGNED(x) __attribute__((aligned(x)))
 #endif
 
-enum class InstructionSet {
+enum class InstructionSetExtension {
     None,
     AVX,
     AVX2
 };
 
-const InstructionSet default_instruction_set = InstructionSet::AVX;
+const InstructionSetExtension default_instruction_set = InstructionSetExtension::AVX;
 
-template <int DIM, typename T, InstructionSet ISA>
+template <int DIM, typename T, InstructionSetExtension ISE>
 struct VectorNDBase {
     T d[DIM];
 };
 
-template <typename T, InstructionSet ISA>
-struct VectorNDBase<1, T, ISA> {
+template <typename T, InstructionSetExtension ISE>
+struct VectorNDBase<1, T, ISE> {
     union {
         T d[1];
         struct {
@@ -48,8 +48,8 @@ struct VectorNDBase<1, T, ISA> {
     };
 };
 
-template <typename T, InstructionSet ISA>
-struct VectorNDBase<2, T, ISA> {
+template <typename T, InstructionSetExtension ISE>
+struct VectorNDBase<2, T, ISE> {
     union {
         T d[2];
         struct {
@@ -58,8 +58,8 @@ struct VectorNDBase<2, T, ISA> {
     };
 };
 
-template <typename T, InstructionSet ISA>
-struct VectorNDBase<3, T, ISA> {
+template <typename T, InstructionSetExtension ISE>
+struct VectorNDBase<3, T, ISE> {
     union {
         T d[3];
         struct {
@@ -68,8 +68,8 @@ struct VectorNDBase<3, T, ISA> {
     };
 };
 
-template <typename T, InstructionSet ISA>
-struct VectorNDBase<4, T, ISA> {
+template <typename T, InstructionSetExtension ISE>
+struct VectorNDBase<4, T, ISE> {
     union {
         T d[4];
         struct {
@@ -78,8 +78,8 @@ struct VectorNDBase<4, T, ISA> {
     };
 };
 
-template <int DIM, typename T, InstructionSet ISA = InstructionSet::AVX>
-struct VectorND : public VectorNDBase<DIM, T, ISA> {
+template <int DIM, typename T, InstructionSetExtension ISE = InstructionSetExtension::AVX>
+struct VectorND : public VectorNDBase<DIM, T, ISE> {
     VectorND() {
         for (int i = 0; i < DIM; i++) {
             this->d[i] = T(0);
@@ -117,7 +117,7 @@ struct VectorND : public VectorNDBase<DIM, T, ISA> {
 
     const T &operator[](int i) const { return this->d[i]; }
 
-    static T dot(VectorND<DIM, T, ISA> row, VectorND<DIM, T, ISA> column) {
+    static T dot(VectorND<DIM, T, ISE> row, VectorND<DIM, T, ISE> column) {
         T ret = T(0);
         for (int i = 0; i < DIM; i++)
             ret += row[i] * column[i];
@@ -240,8 +240,8 @@ struct VectorND : public VectorNDBase<DIM, T, ISA> {
     }
 
     template <typename G>
-    VectorND<DIM, G, ISA> cast() const {
-        VectorND<DIM, G, ISA> ret;
+    VectorND<DIM, G, ISE> cast() const {
+        VectorND<DIM, G, ISE> ret;
         for (int i = 0; i < DIM; i++)
             ret[i] = static_cast<G>(this->d[i]);
         return ret;
@@ -249,26 +249,26 @@ struct VectorND : public VectorNDBase<DIM, T, ISA> {
 };
 
 
-template <int DIM, typename T, InstructionSet ISA>
-VectorND<DIM, T, ISA> operator*(T a, const VectorND<DIM, T, ISA> &v) {
-    return VectorND<DIM, T, ISA>(a) * v;
+template <int DIM, typename T, InstructionSetExtension ISE>
+VectorND<DIM, T, ISE> operator*(T a, const VectorND<DIM, T, ISE> &v) {
+    return VectorND<DIM, T, ISE>(a) * v;
 }
 
-template <int DIM, typename T, InstructionSet ISA>
-VectorND<DIM, T, ISA> operator*(const VectorND<DIM, T, ISA> &v, T a) {
+template <int DIM, typename T, InstructionSetExtension ISE>
+VectorND<DIM, T, ISE> operator*(const VectorND<DIM, T, ISE> &v, T a) {
     return a * v;
 }
 
-using Vector2 = VectorND<2, real, InstructionSet::AVX>;
-using Vector3 = VectorND<3, real, InstructionSet::AVX>;
-using Vector4 = VectorND<4, real, InstructionSet::AVX>;
+using Vector2 = VectorND<2, real, InstructionSetExtension::AVX>;
+using Vector3 = VectorND<3, real, InstructionSetExtension::AVX>;
+using Vector4 = VectorND<4, real, InstructionSetExtension::AVX>;
 
-template <int DIM, typename T, InstructionSet ISA = InstructionSet::AVX>
+template <int DIM, typename T, InstructionSetExtension ISE = InstructionSetExtension::AVX>
 struct MatrixND {
-    using Vector = VectorND<DIM, T, ISA>;
+    using Vector = VectorND<DIM, T, ISE>;
     Vector d[DIM];
 
-    template<int DIM1, typename T1, InstructionSet ISA1>
+    template<int DIM1, typename T1, InstructionSetExtension ISA1>
     MatrixND(const MatrixND<DIM1, T1, ISA1> &o) {
         (*this) = T(0);
         for (int i = 0; i < DIM1; i++) {
@@ -280,13 +280,13 @@ struct MatrixND {
 
     MatrixND() {
         for (int i = 0; i < DIM; i++) {
-            d[i] = VectorND<DIM, T, ISA>();
+            d[i] = VectorND<DIM, T, ISE>();
         }
     }
 
     MatrixND(T v) {
         for (int i = 0; i < DIM; i++) {
-            d[i] = VectorND<DIM, T, ISA>();
+            d[i] = VectorND<DIM, T, ISE>();
         }
         for (int i = 0; i < DIM; i++) {
             d[i][i] = v;
@@ -334,16 +334,16 @@ struct MatrixND {
         }
     }
 
-    VectorND<DIM, T, ISA> &operator[](int i) {
+    VectorND<DIM, T, ISE> &operator[](int i) {
         return d[i];
     }
 
-    const VectorND<DIM, T, ISA> &operator[](int i) const {
+    const VectorND<DIM, T, ISE> &operator[](int i) const {
         return d[i];
     }
 
-    VectorND<DIM, T, ISA> operator*(const VectorND<DIM, T, ISA> &o) const {
-        VectorND<DIM, T, ISA> ret;
+    VectorND<DIM, T, ISE> operator*(const VectorND<DIM, T, ISE> &o) const {
+        VectorND<DIM, T, ISE> ret;
         for (int i = 0; i < DIM; i++)
             for (int j = 0; j < DIM; j++) {
                 ret[i] += d[j][i] * o[j];
@@ -361,7 +361,7 @@ struct MatrixND {
         return ret;
     }
 
-    static MatrixND outer_product(VectorND<DIM, T, ISA> row, VectorND<DIM, T, ISA> column) {
+    static MatrixND outer_product(VectorND<DIM, T, ISE> row, VectorND<DIM, T, ISE> column) {
         MatrixND ret;
         for (int i = 0; i < DIM; i++) {
             ret[i] = column * row[i];
@@ -431,8 +431,8 @@ struct MatrixND {
     }
 
     template <typename G>
-    MatrixND<DIM, G, ISA> cast() const {
-        MatrixND <DIM, G, ISA> ret;
+    MatrixND<DIM, G, ISE> cast() const {
+        MatrixND <DIM, G, ISE> ret;
         for (int i = 0; i < DIM; i++)
             for (int j = 0; j < DIM; j++)
                 ret[i][j] = static_cast<G>(d[i][j]);
@@ -440,24 +440,24 @@ struct MatrixND {
     }
 };
 
-template <int DIM, typename T, InstructionSet ISA>
-MatrixND<DIM, T, ISA> operator*(const float a, const MatrixND<DIM, T, ISA> &M) {
-    MatrixND <DIM, T, ISA> ret;
+template <int DIM, typename T, InstructionSetExtension ISE>
+MatrixND<DIM, T, ISE> operator*(const float a, const MatrixND<DIM, T, ISE> &M) {
+    MatrixND <DIM, T, ISE> ret;
     for (int i = 0; i < DIM; i++) {
         ret[i] = a * M[i];
     }
     return ret;
 }
 
-template <int DIM, typename T, InstructionSet ISA>
-MatrixND<DIM, T, ISA> operator*(const MatrixND<DIM, T, ISA> &M, const float a) {
+template <int DIM, typename T, InstructionSetExtension ISE>
+MatrixND<DIM, T, ISE> operator*(const MatrixND<DIM, T, ISE> &M, const float a) {
     return a * M;
 }
 
 
 template <>
-struct TC_ALIGNED(16) VectorND<3, float32, InstructionSet::AVX> {
-    using Vector3s = VectorND<3, float32, InstructionSet::AVX>;
+struct TC_ALIGNED(16) VectorND<3, float32, InstructionSetExtension::AVX> {
+    using Vector3s = VectorND<3, float32, InstructionSetExtension::AVX>;
 
     union {
         __m128 v;
@@ -563,21 +563,21 @@ struct TC_ALIGNED(16) VectorND<3, float32, InstructionSet::AVX> {
     }
 
     template <typename G>
-    VectorND<3, G, InstructionSet::AVX> cast() const {
-        VectorND<3, G, InstructionSet::AVX> ret;
+    VectorND<3, G, InstructionSetExtension::AVX> cast() const {
+        VectorND<3, G, InstructionSetExtension::AVX> ret;
         for (int i = 0; i < 3; i++)
             ret[i] = static_cast<G>(this->v[i]);
         return ret;
     }
 };
 
-typedef VectorND<3, float32, InstructionSet::AVX> Vector3s;
+typedef VectorND<3, float32, InstructionSetExtension::AVX> Vector3s;
 
 
 // SIMD Vector4
 template <>
-struct TC_ALIGNED(16) VectorND<4, float32, InstructionSet::AVX> {
-    using Vector4s = VectorND<4, float32, InstructionSet::AVX>;
+struct TC_ALIGNED(16) VectorND<4, float32, InstructionSetExtension::AVX> {
+    using Vector4s = VectorND<4, float32, InstructionSetExtension::AVX>;
 
     union {
         __m128 v;
@@ -678,15 +678,15 @@ struct TC_ALIGNED(16) VectorND<4, float32, InstructionSet::AVX> {
     }
 
     template <typename G>
-    VectorND<3, G, InstructionSet::AVX> cast() const {
-        VectorND<3, G, InstructionSet::AVX> ret;
+    VectorND<3, G, InstructionSetExtension::AVX> cast() const {
+        VectorND<3, G, InstructionSetExtension::AVX> ret;
         for (int i = 0; i < 3; i++)
             ret[i] = static_cast<G>(this->v[i]);
         return ret;
     }
 };
 
-typedef VectorND<4, float32, InstructionSet::AVX> Vector4s;
+typedef VectorND<4, float32, InstructionSetExtension::AVX> Vector4s;
 
 
 // FMA: a * b + c
@@ -716,9 +716,9 @@ inline void transpose4x4(const Vector4s m[], Vector4s t[]) {
 
 // SIMD Matrix4
 template <>
-struct TC_ALIGNED(16) MatrixND<4, float32, InstructionSet::AVX> {
-    using Vector = VectorND<4, float32, InstructionSet::AVX>;
-    using Matrix4s = MatrixND<4, float32, InstructionSet::AVX>;
+struct TC_ALIGNED(16) MatrixND<4, float32, InstructionSetExtension::AVX> {
+    using Vector = VectorND<4, float32, InstructionSetExtension::AVX>;
+    using Matrix4s = MatrixND<4, float32, InstructionSetExtension::AVX>;
     union {
         // Four columns, instead of rows!
         Vector4s v[4];
@@ -749,7 +749,7 @@ struct TC_ALIGNED(16) MatrixND<4, float32, InstructionSet::AVX> {
 
     MatrixND(Vector v0, Vector v1, Vector v2, Vector v3) : v{v0, v1, v2, v3} {}
 
-    template<int DIM1, typename T1, InstructionSet ISA1>
+    template<int DIM1, typename T1, InstructionSetExtension ISA1>
     MatrixND(const MatrixND<DIM1, T1, ISA1> &o) {
         for (int i = 0; i < DIM1; i++) {
             for (int j = 0; j < DIM1; j++) {
@@ -797,7 +797,7 @@ struct TC_ALIGNED(16) MatrixND<4, float32, InstructionSet::AVX> {
     }
 };
 
-using Matrix4s = MatrixND<4, float32, InstructionSet::AVX>;
+using Matrix4s = MatrixND<4, float32, InstructionSetExtension::AVX>;
 
 inline Matrix4s operator*(const float a, const Matrix4s &M) {
     Matrix4s ret;
@@ -819,8 +819,8 @@ inline Matrix4s operator*(const Matrix4s &m, const float a) {
     return a * m;
 }
 
-template <int DIM, typename T, InstructionSet ISA>
-inline void print(const VectorND<DIM, T, ISA> &v) {
+template <int DIM, typename T, InstructionSetExtension ISE>
+inline void print(const VectorND<DIM, T, ISE> &v) {
     std::cout << std::endl;
     for (int i = 0; i < DIM; i++) {
         std::cout << v[i] << " ";
@@ -828,8 +828,8 @@ inline void print(const VectorND<DIM, T, ISA> &v) {
     std::cout << std::endl;
 }
 
-template <int DIM, typename T, InstructionSet ISA>
-inline void print(const MatrixND<DIM, T, ISA> &v) {
+template <int DIM, typename T, InstructionSetExtension ISE>
+inline void print(const MatrixND<DIM, T, ISE> &v) {
     std::cout << std::endl;
     for (int i = 0; i < DIM; i++) {
         for (int j = 0; j < DIM; j++) {
@@ -841,8 +841,8 @@ inline void print(const MatrixND<DIM, T, ISA> &v) {
 
 // SIMD Matrix3
 template <>
-struct TC_ALIGNED(16) MatrixND<3, float32, InstructionSet::AVX> {
-    using Matrix3s = MatrixND<3, float32, InstructionSet::AVX>;
+struct TC_ALIGNED(16) MatrixND<3, float32, InstructionSetExtension::AVX> {
+    using Matrix3s = MatrixND<3, float32, InstructionSetExtension::AVX>;
     union {
         // Three columns, instead of rows!
         Vector4s v[3];
@@ -854,7 +854,7 @@ struct TC_ALIGNED(16) MatrixND<3, float32, InstructionSet::AVX> {
         v[2] = 0.0f;
     }
 
-    template<int DIM1, typename T1, InstructionSet ISA1>
+    template<int DIM1, typename T1, InstructionSetExtension ISA1>
     MatrixND(const MatrixND<DIM1, T1, ISA1> &o) {
         for (int i = 0; i < DIM1; i++) {
             for (int j = 0; j < DIM1; j++) {
@@ -896,7 +896,7 @@ struct TC_ALIGNED(16) MatrixND<3, float32, InstructionSet::AVX> {
 
     MatrixND(Vector4s v0, Vector4s v1, Vector4s v2) : v{v0, v1, v2} {}
 
-    MatrixND(const MatrixND<3, real, InstructionSet::None> &o) {
+    MatrixND(const MatrixND<3, real, InstructionSetExtension::None> &o) {
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
                 v[i][j] = o[i][j];
@@ -980,7 +980,7 @@ struct TC_ALIGNED(16) MatrixND<3, float32, InstructionSet::AVX> {
     }
 };
 
-using Matrix3s = MatrixND<3, float32, InstructionSet::AVX>;
+using Matrix3s = MatrixND<3, float32, InstructionSetExtension::AVX>;
 
 inline Matrix3s operator*(const float a, const Matrix3s &M) {
     Matrix3s ret;
@@ -1069,51 +1069,51 @@ inline void test_vector_and_matrix() {
     printf("Vector and matrix test passes.\n");
 }
 
-template <int DIM, typename T, InstructionSet ISA>
-inline MatrixND<DIM, T, ISA> transpose(const MatrixND<DIM, T, ISA> &mat) {
+template <int DIM, typename T, InstructionSetExtension ISE>
+inline MatrixND<DIM, T, ISE> transpose(const MatrixND<DIM, T, ISE> &mat) {
     return mat.transposed();
 }
 
-template <int DIM, typename T, InstructionSet ISA>
-inline MatrixND<DIM, T, ISA> transposed(const MatrixND<DIM, T, ISA> &mat) {
+template <int DIM, typename T, InstructionSetExtension ISE>
+inline MatrixND<DIM, T, ISE> transposed(const MatrixND<DIM, T, ISE> &mat) {
     return transpose(mat);
 }
 
 using Vector4 = Vector4s;
 
-using Vector2d = VectorND<2, float64, InstructionSet::AVX>;
-using Vector3d = VectorND<3, float64, InstructionSet::AVX>;
-using Vector4d = VectorND<4, float64, InstructionSet::AVX>;
+using Vector2d = VectorND<2, float64, InstructionSetExtension::AVX>;
+using Vector3d = VectorND<3, float64, InstructionSetExtension::AVX>;
+using Vector4d = VectorND<4, float64, InstructionSetExtension::AVX>;
 
-using Vector2i = VectorND<2, int, InstructionSet::AVX>;
-using Vector3i = VectorND<3, int, InstructionSet::AVX>;
-using Vector4i = VectorND<4, int, InstructionSet::AVX>;
+using Vector2i = VectorND<2, int, InstructionSetExtension::AVX>;
+using Vector3i = VectorND<3, int, InstructionSetExtension::AVX>;
+using Vector4i = VectorND<4, int, InstructionSetExtension::AVX>;
 
-using Matrix2 = MatrixND<2, float32, InstructionSet::AVX>;
-using Matrix3 = MatrixND<3, float32, InstructionSet::AVX>;
-using Matrix4 = MatrixND<4, float32, InstructionSet::AVX>;
+using Matrix2 = MatrixND<2, float32, InstructionSetExtension::AVX>;
+using Matrix3 = MatrixND<3, float32, InstructionSetExtension::AVX>;
+using Matrix4 = MatrixND<4, float32, InstructionSetExtension::AVX>;
 
-using Matrix2d = MatrixND<2, float64, InstructionSet::AVX>;
-using Matrix3d = MatrixND<3, float64, InstructionSet::AVX>;
-using Matrix4d = MatrixND<4, float64, InstructionSet::AVX>;
+using Matrix2d = MatrixND<2, float64, InstructionSetExtension::AVX>;
+using Matrix3d = MatrixND<3, float64, InstructionSetExtension::AVX>;
+using Matrix4d = MatrixND<4, float64, InstructionSetExtension::AVX>;
 
-inline float32 determinant(const MatrixND<2, float32, InstructionSet::AVX> &mat) {
+inline float32 determinant(const MatrixND<2, float32, InstructionSetExtension::AVX> &mat) {
     return mat[0][0] * mat[1][1] - mat[0][1] * mat[1][0];
 }
 
-inline float32 determinant(const MatrixND<3, float32, InstructionSet::AVX> &mat) {
+inline float32 determinant(const MatrixND<3, float32, InstructionSetExtension::AVX> &mat) {
     return mat[0][0] * (mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2])
            - mat[1][0] * (mat[0][1] * mat[2][2] - mat[2][1] * mat[0][2])
            + mat[2][0] * (mat[0][1] * mat[1][2] - mat[1][1] * mat[0][2]);
 }
 
-template <typename T, InstructionSet ISA>
-inline VectorND<3, T, ISA> cross(const VectorND<3, T, ISA> &a, const VectorND<3, T, ISA> &b) {
-    return VectorND<3, T, ISA>(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+template <typename T, InstructionSetExtension ISE>
+inline VectorND<3, T, ISE> cross(const VectorND<3, T, ISE> &a, const VectorND<3, T, ISE> &b) {
+    return VectorND<3, T, ISE>(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
 }
 
-template <int DIM, typename T, InstructionSet ISA>
-inline T dot(const VectorND<DIM, T, ISA> &a, const VectorND<DIM, T, ISA> &b) {
+template <int DIM, typename T, InstructionSetExtension ISE>
+inline T dot(const VectorND<DIM, T, ISE> &a, const VectorND<DIM, T, ISE> &b) {
     T sum = a[0] * b[0];
     for (int i = 1; i < DIM; i++) {
         sum += a[i] * b[i];
@@ -1121,24 +1121,24 @@ inline T dot(const VectorND<DIM, T, ISA> &a, const VectorND<DIM, T, ISA> &b) {
     return sum;
 }
 
-template <int DIM, typename T, InstructionSet ISA>
-inline VectorND<DIM, T, ISA> normalize(const VectorND<DIM, T, ISA> &a) {
+template <int DIM, typename T, InstructionSetExtension ISE>
+inline VectorND<DIM, T, ISE> normalize(const VectorND<DIM, T, ISE> &a) {
     return (T(1) / a.length()) * a;
 }
 
-template <int DIM, typename T, InstructionSet ISA>
-inline VectorND<DIM, T, ISA> normalized(const VectorND<DIM, T, ISA> &a) {
+template <int DIM, typename T, InstructionSetExtension ISE>
+inline VectorND<DIM, T, ISE> normalized(const VectorND<DIM, T, ISE> &a) {
     return normalize(a);
 }
 
-template <int DIM, typename T, InstructionSet ISA>
-inline float32 length(const VectorND<DIM, T, ISA> &a) {
+template <int DIM, typename T, InstructionSetExtension ISE>
+inline float32 length(const VectorND<DIM, T, ISE> &a) {
     return a.length();
 }
 
-template <int DIM, typename T, InstructionSet ISA>
-inline VectorND<DIM, T, ISA> fract(const VectorND<DIM, T, ISA> &a) {
-    VectorND<DIM, T, ISA> ret;
+template <int DIM, typename T, InstructionSetExtension ISE>
+inline VectorND<DIM, T, ISE> fract(const VectorND<DIM, T, ISE> &a) {
+    VectorND<DIM, T, ISE> ret;
     for (int i = 0; i < DIM; i++) {
         ret[i] = a[i] - (int)floor(a[i]);
     }

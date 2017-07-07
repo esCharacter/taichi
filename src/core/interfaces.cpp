@@ -9,6 +9,7 @@
 
 #include <functional>
 #include <pybind11/pybind11.h>
+#include <taichi/common/task.h>
 #include <taichi/visual/camera.h>
 #include <taichi/dynamics/fluid2d/fluid.h>
 #include <taichi/dynamics/simulation3d.h>
@@ -48,5 +49,6 @@ TC_INTERFACE_DEF(Fluid, "fluid")
 TC_INTERFACE_DEF(RayIntersection, "ray_intersection")
 TC_INTERFACE_DEF(ParticleRenderer, "particle_renderer")
 TC_INTERFACE_DEF(Benchmark, "benchmark")
+TC_INTERFACE_DEF(Task, "task")
 
 TC_NAMESPACE_END

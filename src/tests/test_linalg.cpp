@@ -7,11 +7,11 @@
     the MIT license as written in the LICENSE file.
 *******************************************************************************/
 
-#include "Game.h"
+#include <taichi/common/util.h>
 
-/*
-int main() {
-    game.Run();
-    return 0;
+TC_NAMESPACE_BEGIN
+
+void test_linalg() {
 }
-*/
+
+TC_NAMESPACE_END

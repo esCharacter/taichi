@@ -1,17 +1,26 @@
 /*******************************************************************************
     Taichi - Physically based Computer Graphics Library
 
-    Copyright (c) 2016 Yuanming Hu <yuanmhu@gmail.com>
+    Copyright (c) 2017 Yuanming Hu <yuanmhu@gmail.com>
 
     All rights reserved. Use of this source code is governed by
     the MIT license as written in the LICENSE file.
 *******************************************************************************/
 
-#include "Game.h"
+#pragma once
 
-/*
-int main() {
-    game.Run();
-    return 0;
-}
-*/
+#include <taichi/common/meta.h>
+#include <vector>
+#include <string>
+
+TC_NAMESPACE_BEGIN
+
+class Task : public Unit {
+public:
+    virtual void run(const std::vector<std::string> &parameters) = 0;
+};
+
+TC_INTERFACE(Task)
+
+TC_NAMESPACE_END
+
