@@ -44,9 +44,9 @@ real DynamicLevelSet2D::sample(const Vector2 &pos, real t) const {
 }
 
 Array2D<real> DynamicLevelSet2D::rasterize(int width, int height, real t) {
-    Array2D<real> r0 = levelset0->rasterize(width, height);
-    Array2D<real> r1 = levelset1->rasterize(width, height);
-    Array2D<real> out(width, height);
+    Array2D<real> r0 = levelset0->rasterize(Vector2i(width, height));
+    Array2D<real> r1 = levelset1->rasterize(Vector2i(width, height));
+    Array2D<real> out(Vector2i(width, height));
     for (auto &ind : Region2D(0, width, 0, height, Vector2(0.5f, 0.5f))) {
         out[ind] = lerp((t - t0) / (t1 - t0), r0[ind], r1[ind]);
         if (std::isnan(out[ind])) {

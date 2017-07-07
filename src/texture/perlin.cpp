@@ -22,7 +22,7 @@ public:
     virtual Vector4 sample(const Vector3 &coord) const override {
         return Vector4(noise(coord * 256.0f));
     }
-    real noise(Vector3f coord) const {
+    real noise(Vector3 coord) const {
         return real(noise(coord.x, coord.y, coord.z));
     }
     static double noise(double x, double y, double z) {

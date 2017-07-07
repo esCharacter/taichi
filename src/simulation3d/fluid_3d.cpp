@@ -24,7 +24,7 @@ const static Vector3i offsets[]{
 };
 
 void Smoke3D::project() {
-    Array divergence(res[0], res[1], res[2], 0.0f);
+    Array divergence(res, 0.0f);
     for (auto &ind : u.get_region()) {
         if (0 < ind.i)
             divergence[ind + Vector3i(-1, 0, 0)] += u[ind];
@@ -105,17 +105,17 @@ void Smoke3D::initialize(const Config &config) {
     solver_config.set("res", res).set("num_threads", num_threads).set("padding", padding).
             set("maximum_iterations", config.get_int("maximum_pressure_iterations"));
     pressure_solver = create_instance<PoissonSolver3D>(config.get_string("pressure_solver"), solver_config);
-    u = Array(res[0] + 1, res[1], res[2], 0.0f, Vector3(0.0f, 0.5f, 0.5f));
-    v = Array(res[0], res[1] + 1, res[2], 0.0f, Vector3(0.5f, 0.0f, 0.5f));
-    w = Array(res[0], res[1], res[2] + 1, 0.0f, Vector3(0.5f, 0.5f, 0.0f));
-    rho = Array(res[0], res[1], res[2], 0.0f);
-    pressure = Array(res[0], res[1], res[2], 0.0f);
-    last_pressure = Array(res[0], res[1], res[2], 0.0f);
-    t = Array(res[0], res[1], res[2], config.get("initial_t", 0.0f));
+    u = Array(res + Vector3i(1, 0, 0), 0.0f, Vector3(0.0f, 0.5f, 0.5f));
+    v = Array(res + Vector3i(0, 1, 0), 0.0f, Vector3(0.5f, 0.0f, 0.5f));
+    w = Array(res + Vector3i(0, 0, 1), 0.0f, Vector3(0.5f, 0.5f, 0.0f));
+    rho = Array(res, 0.0f);
+    pressure = Array(res, 0.0f);
+    last_pressure = Array(res, 0.0f);
+    t = Array(res, config.get("initial_t", 0.0f));
     current_t = 0.0f;
     boundary_condition = PoissonSolver3D::BCArray(res);
     for (auto &ind : boundary_condition.get_region()) {
-        Vector3 d = ind.get_pos() - Vector3(res) * 0.5f;
+        Vector3 d = ind.get_pos() - res.cast<real>() * 0.5f;
         if (length(d) * 4 < res[0] || ind.i == 0 || ind.i == res[0] - 1 || ind.j == 0
             || ind.k == 0 || ind.k == res[2] - 1) {
             //boundary_condition[ind] = PoissonSolver3D::NEUMANN;
@@ -293,11 +293,11 @@ void Smoke3D::apply_boundary_condition() {
     for (auto &ind : boundary_condition.get_region()) {
         if (boundary_condition[ind] == PoissonSolver3D::NEUMANN) {
             u[ind] = 0;
-            u[ind + Vector3(1, 0, 0)] = 0;
+            u[ind + Vector3i(1, 0, 0)] = 0;
             v[ind] = 0;
-            v[ind + Vector3(0, 1, 0)] = 0;
+            v[ind + Vector3i(0, 1, 0)] = 0;
             w[ind] = 0;
-            w[ind + Vector3(0, 0, 1)] = 0;
+            w[ind + Vector3i(0, 0, 1)] = 0;
         }
     }
     if (!open_boundary) {

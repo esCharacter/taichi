@@ -95,7 +95,7 @@ Vector3d rgb_from_temperature(float temp) {
         radiance += color * intensity;
     }
     for (int i = 0; i < 3; i++) {
-        radiance[i] = max(radiance[i], 0.0);
+        radiance[i] = std::max(radiance[i], 0.0);
     }
     return radiance;
 }

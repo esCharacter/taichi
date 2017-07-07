@@ -11,6 +11,19 @@
 
 TC_NAMESPACE_BEGIN
 
+// TODO: generalize
+Vector3 exp(Vector3 a) {
+    return Vector3(std::exp(a[0]), std::exp(a[1]), std::exp(a[2]));
+}
+
+Vector3 pow(Vector3 a, Vector3 b) {
+    return Vector3(std::pow(a[0], b[0]), std::pow(a[1], b[1]), std::pow(a[2], b[2]));
+}
+
+Vector3 lerp(Vector3 a, Vector3 b, Vector3 x) {
+    return a * (Vector3(1.0) - x) + b * x;
+}
+
 /**
  * Based on "A Practical Analytic Model for Daylight"
  * aka The Preetham Model, the de facto standard analytic skydome model
@@ -165,10 +178,10 @@ public:
         real mPhase = hgPhase(cosTheta, mieDirectionalG);
         Vector3 betaMTheta = vBetaM * mPhase;
 
-        Vector3 Lin = pow(vSunE * ((betaRTheta + betaMTheta) / (vBetaR + vBetaM)) * (1.0f - Fex), Vector3(1.5f));
-        Lin *= mix(Vector3(1.0f),
-                   pow(vSunE * ((betaRTheta + betaMTheta) / (vBetaR + vBetaM)) * Fex, Vector3(1.0f / 2.0f)),
-                   clamp(pow(1.0f - dot(up, vSunDirection), 5.0f), 0.0f, 1.0f));
+        Vector3 Lin = pow(vSunE * ((betaRTheta + betaMTheta) / (vBetaR + vBetaM)) * (Vector3(1.0f) - Fex), Vector3(1.5f));
+        Lin *= lerp(Vector3(1.0f),
+                    pow(vSunE * ((betaRTheta + betaMTheta) / (vBetaR + vBetaM)) * Fex, Vector3(1.0f / 2.0f)),
+                    clamp(pow(1.0f - dot(up, vSunDirection), 5.0f), 0.0f, 1.0f));
 
         // nightsky
         Vector3 direction = normalize(vWorldPosition - cameraPos);

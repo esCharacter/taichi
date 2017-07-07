@@ -96,7 +96,7 @@ class MPM3:
         self.video_manager.make_video()
 
     def create_levelset(self):
-        return LevelSet3D(self.resolution, Vector(0.0, 0.0, 0.0))
+        return LevelSet3D(Vectori(self.resolution), Vector(0.0, 0.0, 0.0))
 
     def test(self):
         return self.c.test()

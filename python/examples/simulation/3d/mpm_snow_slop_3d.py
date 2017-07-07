@@ -2,7 +2,7 @@ import math
 
 from taichi.dynamics.mpm import MPM3
 from taichi.core import tc_core
-from taichi.misc.util import Vector
+from taichi.misc.util import Vector, Vectori
 from taichi.visual import *
 from taichi.visual.post_process import *
 from taichi.visual.texture import Texture
@@ -69,6 +69,11 @@ def render_sand_frame(frame, d, t):
 
 
 if __name__ == '__main__':
+    v = Vectori(1, 2, 3)
+    print v
+    print v.y
+
+
     downsample = grid_downsample
     resolution = (255 / downsample, 255 / downsample, 255 / downsample)
 

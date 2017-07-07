@@ -174,7 +174,7 @@ void EmbreeRayIntersection::query(Ray &ray) {
     ray.triangle_id = rtc_ray.primID;
     return;
     Vector3 normal = Vector3(rtc_ray.Ng[0], rtc_ray.Ng[1], rtc_ray.Ng[2]); // What the hell happened to Ng???
-    normal /= max_component(abs(normal));
+    normal /= max_component(normal.abs());
     ray.geometry_normal = normalize(normal);
 }
 

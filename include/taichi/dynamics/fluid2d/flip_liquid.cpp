@@ -31,10 +31,10 @@ void FLIPLiquid::initialize_solver(const Config &config)
     advection_order = config.get("advection_order", 2);
     correction_strength = config.get("correction_strength", 0.1f);
     correction_neighbours = config.get("correction_neighbours", 5);
-    u_backup = Array<real>(width + 1, height, 0.0f, Vector2(0.0f, 0.5f));
-    v_backup = Array<real>(width, height + 1, 0.0f, Vector2(0.5f, 0.0f));
-    u_count = Array<real>(width + 1, height, 0.0f);
-    v_count = Array<real>(width, height + 1, 0.0f);
+    u_backup = Array<real>(u.get_res(), 0.0f, Vector2(0.0f, 0.5f));
+    v_backup = Array<real>(v.get_res(), 0.0f, Vector2(0.5f, 0.0f));
+    u_count = Array<real>(u.get_res(), 0.0f);
+    v_count = Array<real>(v.get_res(), 0.0f);
 }
 
 Vector2 FLIPLiquid::sample_velocity(Vector2 position, Vector2 velocity, real lerp) {

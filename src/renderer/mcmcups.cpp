@@ -41,7 +41,7 @@ public:
         use_vm = config.get("use_vm", true);
         alpha = config.get("alpha", 0.66667f);
         shrinking_radius = config.get("shrinking_radius", true);
-        bdpm_image.initialize(width, height, Vector3(0.0f, 0.0f, 0.0f));
+        bdpm_image.initialize(Vector2i(width, height), Vector3(0.0f));
         radius = initial_radius;
         n_samples_per_stage = width * height / stage_frequency;
     }
@@ -88,7 +88,7 @@ public:
                     for (int i = 0; i < num_light_vertices - 1; i++) full_path[path_length - i] = light_path[i];
 
                     // Evaluateh
-                    Vector3 f = path_throughput(full_path);
+                    Vector3 f = path_throughput(full_path).cast<real>();
                     if (max_component(f) <= 0.0f) {
                         //printf("f\n");
                         continue;

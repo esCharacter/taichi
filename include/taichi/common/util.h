@@ -59,6 +59,15 @@
 #define TC_NAMESPACE_BEGIN namespace taichi {
 #define TC_NAMESPACE_END }
 
+// Check for inf, nan?
+// #define CV_ON
+
+#include <type_traits>
+
+void taichi_raise_assertion_failure_in_python(const char *msg);
+
+TC_NAMESPACE_BEGIN
+
 #ifdef _WIN64
 typedef __int64 int64;
 typedef unsigned __int64 uint64;
@@ -71,15 +80,6 @@ typedef unsigned long long uint64;
 typedef float float32;
 typedef double float64;
 typedef float real;
-
-// Check for inf, nan?
-// #define CV_ON
-
-#include <type_traits>
-
-void taichi_raise_assertion_failure_in_python(const char *msg);
-
-TC_NAMESPACE_BEGIN
 
 void print_traceback();
 

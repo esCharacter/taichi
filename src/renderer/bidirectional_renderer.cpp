@@ -365,7 +365,7 @@ PathContribution BidirectionalRenderer::connect(const Path &eye_path, const Path
             }
             if (max_component(c) <= 0.0) continue;
             //printf("%d - %d\n", num_eye_vertices, num_light_vertices);
-            result.push_back(Contribution(px, py, path_length, c));
+            result.push_back(Contribution(px, py, path_length, c.cast<float32>()));
 
             if (specified && (num_eye_vert_spec == num_eye_vertices) &&
                 (num_light_vert_spec == num_light_vertices))
@@ -392,16 +392,16 @@ Vector3d BidirectionalRenderer::path_throughput(const Path &path) {
     for (int i = 0; i < path.size(); i++) {
         if (i == 0) {
             // Tricky camera throughput...
-            Vector3d d0 = path[1].pos - path[0].pos;
-            const double dist2 = dot(d0, d0);
-            d0 = d0 * double(1.0 / sqrt(dist2));
-            const double c = dot(d0, camera->get_dir());
-            const double ds2 = 1.0 / (c * c);
+            Vector3 d0 = path[1].pos - path[0].pos;
+            const real dist2 = dot(d0, d0);
+            d0 = d0 * (1.0f / sqrt(dist2));
+            const real c = dot(d0, camera->get_dir());
+            const real ds2 = 1.0 / (c * c);
             f = f * double(fabs(dot(d0, path[1].normal) / dist2 / c * ds2));
         } else if (i == ((int)path.size() - 1)) {
             if (path[i].bsdf.is_emissive()) {
                 const Vector3 out_dir = normalize(path[i - 1].pos - path[i].pos);
-                f = f * (Vector3d)path[i].bsdf.evaluate(path[i].normal, out_dir);
+                f = f * path[i].bsdf.evaluate(path[i].normal, out_dir).cast<float64>();
             } else {
                 // Last event must be emission
                 f *= 0;
@@ -419,9 +419,9 @@ Vector3d BidirectionalRenderer::path_throughput(const Path &path) {
             Vector3d bsdf;
             if (path[i].connected) {
                 // For end points of eye/light path, we need to re-evaluate bsdf
-                bsdf = path[i].bsdf.evaluate(in_dir, out_dir);
+                bsdf = path[i].bsdf.evaluate(in_dir, out_dir).cast<float64>();
             } else {
-                bsdf = path[i].f;
+                bsdf = path[i].f.cast<float64>();
             }
             f *= bsdf * geometry_term(path[i], path[i + 1]);
         }

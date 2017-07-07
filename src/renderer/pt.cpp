@@ -719,7 +719,7 @@ public:
         large_step_prob = config.get("large_step_prob", 0.3f);
         estimation_rounds = config.get("estimation_rounds", 1);
         mutation_strength = config.get_real("mutation_strength");
-        buffer.initialize(width, height, Vector3(0.0f));
+        buffer.initialize(Vector2i(width, height), Vector3(0.0f));
         sample_count = 0;
     }
 

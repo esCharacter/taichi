@@ -12,10 +12,12 @@
 
 #include <cmath>
 #include <taichi/common/util.h>
+#include <type_traits>
 
-TC_NAMESPACE_BEGIN
 // >= AVX 2
 #include <immintrin.h>
+
+TC_NAMESPACE_BEGIN
 
 #ifdef _WIN64
 #define TC_ALIGNED(x) __declspec(align(x))
@@ -76,7 +78,7 @@ struct VectorNDBase<4, T, ISA> {
     };
 };
 
-template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
+template <int DIM, typename T, InstructionSet ISA = InstructionSet::AVX>
 struct VectorND : public VectorNDBase<DIM, T, ISA> {
     VectorND() {
         for (int i = 0; i < DIM; i++) {
@@ -261,7 +263,7 @@ using Vector2 = VectorND<2, real, InstructionSet::AVX>;
 using Vector3 = VectorND<3, real, InstructionSet::AVX>;
 using Vector4 = VectorND<4, real, InstructionSet::AVX>;
 
-template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
+template <int DIM, typename T, InstructionSet ISA = InstructionSet::AVX>
 struct MatrixND {
     using Vector = VectorND<DIM, T, ISA>;
     Vector d[DIM];
@@ -438,7 +440,7 @@ struct MatrixND {
     }
 };
 
-template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
+template <int DIM, typename T, InstructionSet ISA>
 MatrixND<DIM, T, ISA> operator*(const float a, const MatrixND<DIM, T, ISA> &M) {
     MatrixND <DIM, T, ISA> ret;
     for (int i = 0; i < DIM; i++) {
@@ -447,10 +449,130 @@ MatrixND<DIM, T, ISA> operator*(const float a, const MatrixND<DIM, T, ISA> &M) {
     return ret;
 }
 
-template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
+template <int DIM, typename T, InstructionSet ISA>
 MatrixND<DIM, T, ISA> operator*(const MatrixND<DIM, T, ISA> &M, const float a) {
     return a * M;
 }
+
+
+template <>
+struct TC_ALIGNED(16) VectorND<3, float32, InstructionSet::AVX> {
+    using Vector3s = VectorND<3, float32, InstructionSet::AVX>;
+
+    union {
+        __m128 v;
+        struct {
+            float x, y, z, w;
+        };
+    };
+
+    VectorND() : VectorND(0.0f) {};
+
+    VectorND(real x, real y, real z, real w = 0.0f) : v(_mm_set_ps(w, z, y, x)) {}
+
+    VectorND(real x) : VectorND(x, x, x, 0.0f) {}
+
+    VectorND(__m128 v) : v(v) {}
+
+    float &operator[](int i) { return (&x)[i]; }
+
+    const float &operator[](int i) const { return (&x)[i]; }
+
+    operator __m128() const { return v; }
+
+    operator __m128i() const { return _mm_castps_si128(v); }
+
+    operator __m128d() const { return _mm_castps_pd(v); }
+
+    Vector3s &operator=(const Vector3s &o) {
+        v = o.v;
+        return *this;
+    }
+
+    VectorND operator+(const VectorND &o) const { return _mm_add_ps(v, o.v); }
+
+    VectorND operator-(const VectorND &o) const { return _mm_sub_ps(v, o.v); }
+
+    VectorND operator*(const VectorND &o) const { return _mm_mul_ps(v, o.v); }
+
+    VectorND operator/(const VectorND &o) const { return _mm_div_ps(v, o.v); }
+
+    VectorND operator-() const { return _mm_sub_ps(VectorND(0.0f), v); }
+
+    VectorND &operator+=(const VectorND &o) {
+        (*this) = (*this) + o;
+        return *this;
+    }
+
+    VectorND &operator-=(const VectorND &o) {
+        (*this) = (*this) - o;
+        return *this;
+    }
+
+    VectorND &operator*=(const VectorND &o) {
+        (*this) = (*this) * o;
+        return *this;
+    }
+
+    VectorND &operator/=(const VectorND &o) {
+        (*this) = (*this) / o;
+        return *this;
+    }
+
+    bool operator==(const VectorND &o) const {
+        for (int i = 0; i < 3; i++)
+            if (this->v[i] != o[i]) return false;
+        return true;
+    }
+
+    bool operator!=(const VectorND &o) const {
+        for (int i = 0; i < 3; i++)
+            if (this->v[i] != o[i]) return true;
+        return false;
+    }
+
+    template <int a, int b, int c, int d>
+    VectorND permute() const {
+        return _mm_permute_ps(v, _MM_SHUFFLE(a, b, c, d));
+    }
+
+    template <int a>
+    VectorND broadcast() const {
+        return permute<a, a, a, a>();
+    }
+
+    VectorND abs() const {
+        return VectorND(
+                std::abs(x),
+                std::abs(y),
+                std::abs(z),
+                std::abs(w)
+        );
+    }
+
+    real max() const {
+        return std::max(std::max(v[0], v[1]), v[2]);
+    }
+
+    float length2() const {
+        return _mm_cvtss_f32(_mm_dp_ps(v, v, 0x71));
+    }
+
+    float length() const {
+        return std::sqrt(length2());
+    }
+
+    template <typename G>
+    VectorND<3, G, InstructionSet::AVX> cast() const {
+        VectorND<3, G, InstructionSet::AVX> ret;
+        for (int i = 0; i < 3; i++)
+            ret[i] = static_cast<G>(this->v[i]);
+        return ret;
+    }
+};
+
+typedef VectorND<3, float32, InstructionSet::AVX> Vector3s;
+
 
 // SIMD Vector4
 template <>
@@ -543,7 +665,7 @@ struct TC_ALIGNED(16) VectorND<4, float32, InstructionSet::AVX> {
         );
     }
 
-    Vector4s max() const {
+    real max() const {
         return std::max(std::max(v[0], v[1]), std::max(v[2], v[3]));
     }
 
@@ -554,12 +676,26 @@ struct TC_ALIGNED(16) VectorND<4, float32, InstructionSet::AVX> {
     float length() const {
         return std::sqrt(length2());
     }
+
+    template <typename G>
+    VectorND<3, G, InstructionSet::AVX> cast() const {
+        VectorND<3, G, InstructionSet::AVX> ret;
+        for (int i = 0; i < 3; i++)
+            ret[i] = static_cast<G>(this->v[i]);
+        return ret;
+    }
 };
 
 typedef VectorND<4, float32, InstructionSet::AVX> Vector4s;
 
+
 // FMA: a * b + c
 inline Vector4s fused_mul_add(const Vector4s &a, const Vector4s &b, const Vector4s &c) {
+    return _mm_fmadd_ps(a, b, c);
+}
+
+// FMA: a * b + c
+inline Vector3s fused_mul_add(const Vector3s &a, const Vector3s &b, const Vector3s &c) {
     return _mm_fmadd_ps(a, b, c);
 }
 
@@ -672,6 +808,13 @@ inline Matrix4s operator*(const float a, const Matrix4s &M) {
     return ret;
 }
 
+inline Matrix4s operator*(const Matrix4s &M, const Matrix4s &N) {
+    Matrix4s ret;
+    for (int i = 0; i < 4; i++)
+        ret[i] = M[i] * N[i];
+    return ret;
+}
+
 inline Matrix4s operator*(const Matrix4s &m, const float a) {
     return a * m;
 }
@@ -737,6 +880,12 @@ struct TC_ALIGNED(16) MatrixND<3, float32, InstructionSet::AVX> {
         v[0] = Vector4s(diag, 0.0f, 0.0f, 0.0f);
         v[1] = Vector4s(0.0f, diag, 0.0f, 0.0f);
         v[2] = Vector4s(0.0f, 0.0f, diag, 0.0f);
+    }
+
+    MatrixND(Vector3 diag) {
+        v[0] = Vector4s(diag[0], 0.0f, 0.0f, 0.0f);
+        v[1] = Vector4s(0.0f, diag[1], 0.0f, 0.0f);
+        v[2] = Vector4s(0.0f, 0.0f, diag[2], 0.0f);
     }
 
     MatrixND(float32 diag0, float32 diag1, float32 diag2) {
@@ -821,6 +970,13 @@ struct TC_ALIGNED(16) MatrixND<3, float32, InstructionSet::AVX> {
             }
         }
         return ret;
+    }
+
+    Vector3s operator*(const Vector3s &o) const {
+        Vector4s ret = v[2] * o.broadcast<2>();
+        ret = fused_mul_add(v[1], o.broadcast<1>(), ret);
+        ret = fused_mul_add(v[0], o.broadcast<0>(), ret);
+        return Vector3s(ret[0], ret[1], ret[2]);
     }
 };
 
@@ -913,12 +1069,12 @@ inline void test_vector_and_matrix() {
     printf("Vector and matrix test passes.\n");
 }
 
-template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
+template <int DIM, typename T, InstructionSet ISA>
 inline MatrixND<DIM, T, ISA> transpose(const MatrixND<DIM, T, ISA> &mat) {
     return mat.transposed();
 }
 
-template <int DIM, typename T, InstructionSet ISA = InstructionSet::None>
+template <int DIM, typename T, InstructionSet ISA>
 inline MatrixND<DIM, T, ISA> transposed(const MatrixND<DIM, T, ISA> &mat) {
     return transpose(mat);
 }
@@ -941,11 +1097,11 @@ using Matrix2d = MatrixND<2, float64, InstructionSet::AVX>;
 using Matrix3d = MatrixND<3, float64, InstructionSet::AVX>;
 using Matrix4d = MatrixND<4, float64, InstructionSet::AVX>;
 
-float32 determinant(const MatrixND<2, float32, InstructionSet::AVX> &mat) {
+inline float32 determinant(const MatrixND<2, float32, InstructionSet::AVX> &mat) {
     return mat[0][0] * mat[1][1] - mat[0][1] * mat[1][0];
 }
 
-float32 determinant(const MatrixND<3, float32, InstructionSet::AVX> &mat) {
+inline float32 determinant(const MatrixND<3, float32, InstructionSet::AVX> &mat) {
     return mat[0][0] * (mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2])
            - mat[1][0] * (mat[0][1] * mat[2][2] - mat[2][1] * mat[0][2])
            + mat[2][0] * (mat[0][1] * mat[1][2] - mat[1][1] * mat[0][2]);

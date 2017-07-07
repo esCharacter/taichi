@@ -16,7 +16,7 @@
 
 TC_NAMESPACE_BEGIN
 
-template<int DIM>
+template <int DIM>
 class LevelSet : public ArrayND<DIM, real> {
 public:
     using VectorI = VectorND<DIM, int>;
@@ -26,9 +26,15 @@ public:
 
     real friction = 1.0f;
 
-    LevelSet() : Array(VectorI(0)) {}
+    LevelSet() {
+        initialize(VectorI(0));
+    }
 
-    void initialize(const VectorI &res, Vector offset=Vector(0.5f), real value=INF) {
+    LevelSet(const VectorI &res, Vector offset = Vector(0.5f), real value = INF) {
+        Array::initialize(res, value, offset);
+    }
+
+    void initialize(const VectorI &res, Vector offset = Vector(0.5f), real value = INF) {
         Array::initialize(res, value, offset);
     }
 

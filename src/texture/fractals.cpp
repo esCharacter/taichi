@@ -30,7 +30,7 @@ public:
     }
 
     virtual Vector4 sample(const Vector3 &coord) const override {
-        Vector3d c = coord;
+        Vector3d c = coord.cast<float64>();
         for (int i = 0; i < limit; i++) {
             if (cut(c)) return Vector4(0.0f);
             c = fract(c * 3.0);

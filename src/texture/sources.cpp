@@ -11,7 +11,8 @@
 #include <taichi/visual/scene_geometry.h>
 #include <taichi/visualization/image_buffer.h>
 #include <taichi/math/array_3d.h>
-#include <taichi/math/levelset_3d.h>
+#include <taichi/math/levelset.h>
+#include <taichi/math/math.h>
 #include <taichi/common/asset_manager.h>
 
 TC_NAMESPACE_BEGIN

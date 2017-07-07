@@ -32,17 +32,17 @@ void EulerLiquid::initialize_solver(const Config &config)
     height = config.get("simulation_height", 64);
     kernel_size = config.get("kernel_size", 1);
     cfl = config.get("cfl", 0.1f);
-    u = Array<real>(width + 1, height, 0.0f, Vector2(0.0f, 0.5f));
-    u_weight = Array<real>(width + 1, height, 0.0f, Vector2(0.0f, 0.5f));
-    v = Array<real>(width, height + 1, 0.0f, Vector2(0.5f, 0.0f));
-    v_weight = Array<real>(width, height + 1, 0.0f, Vector2(0.5f, 0.0f));
-    cell_types = Array<CellType>(width, height, CellType::AIR, Vector2(0.5f, 0.5f));
+    u = Array<real>(Vector2i(width + 1, height), 0.0f, Vector2(0.0f, 0.5f));
+    u_weight = Array<real>(Vector2i(width + 1, height), 0.0f, Vector2(0.0f, 0.5f));
+    v = Array<real>(Vector2i(width, height + 1), 0.0f, Vector2(0.5f, 0.0f));
+    v_weight = Array<real>(Vector2i(width, height + 1), 0.0f, Vector2(0.5f, 0.0f));
+    cell_types = Array<CellType>(Vector2i(width, height), CellType::AIR, Vector2(0.5f, 0.5f));
     gravity = config.get_vec2("gravity");
     maximum_iterations = config.get("maximum_iterations", 300);
     tolerance = config.get("tolerance", 1e-4f);
     theta_threshold = config.get("theta_threshold", 0.1f);
     initialize_pressure_solver();
-    liquid_levelset.initialize(width, height, Vector2(0.5f, 0.5f));
+    liquid_levelset.initialize(Vector2i(width, height), Vector2(0.5f, 0.5f));
     t = 0;
 }
 
@@ -267,7 +267,7 @@ void EulerLiquid::rebuild_levelset(LevelSet2D &levelset, real band) {
 
 EulerLiquid::Array<real> EulerLiquid::advect(const Array<real> & arr, real delta_t)
 {
-    Array<real> arr_out(arr.get_width(), arr.get_height(), 0, arr.get_storage_offset());
+    Array<real> arr_out(arr.get_res(), 0, arr.get_storage_offset());
     for (auto &ind : arr.get_region()) {
         Vector2 position = ind.get_pos();
         Vector2 velocity = sample_velocity(position);
@@ -284,10 +284,10 @@ bool EulerLiquid::check_diag_domination()
         res -= abs(Ax[ind]);
         res -= abs(Ay[ind]);
         if (ind.i > 0) {
-            res -= abs(Ax[ind + Vector2(-1, 0)]);
+            res -= abs(Ax[ind + Vector2i(-1, 0)]);
         }
         if (ind.j > 0) {
-            res -= abs(Ay[ind + Vector2(0, -1)]);
+            res -= abs(Ay[ind + Vector2i(0, -1)]);
         }
         if (res < -1e-7f) {
             return false;

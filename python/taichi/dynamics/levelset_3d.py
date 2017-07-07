@@ -6,9 +6,9 @@ class LevelSet3D:
     def __init__(self, res, offset=None):
         if offset is None:
             offset = Vector(0.5, 0.5, 0.5)
-        self.delta_x = 1.0 / min(res)
-        self.res = (res[0] + 1, res[1] + 1, res[2] + 1)
-        self.levelset = tc.core.LevelSet3D(int(res[0]) + 1, int(res[1]) + 1, int(res[2]) + 1, offset)
+        self.delta_x = 1.0 / min(res.x, res.y, res.z)
+        self.res = res + Vectori(1, 1, 1)
+        self.levelset = tc.core.LevelSet3D(self.res, offset)
         self.id = tc.core.register_levelset3d(self.levelset)
 
     def add_sphere(self, center, radius, inside_out=False):
@@ -18,7 +18,7 @@ class LevelSet3D:
                                  radius / self.delta_x, inside_out)
 
     def add_plane(self, a, b, c, d):
-        self.levelset.add_plane(a, b, c, d / self.delta_x)
+        self.levelset.add_plane(Vector(a, b, c), d / self.delta_x)
 
     def add_cuboid(self, lower_boundry, upper_boundry, inside_out=False):
         self.levelset.add_cuboid(

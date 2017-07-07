@@ -61,9 +61,9 @@ public:
         this->volumetric_absorption = config.get_real("absorption");
         this->resolution = config.get_vec3i("resolution");
         this->tex = AssetManager::get_asset<Texture>(config.get_int("tex"));
-        voxels.initialize(resolution.x, resolution.y, resolution.z, 1.0f);
+        voxels.initialize(resolution, 1.0f);
         maximum = 0.0f;
-        Vector3 inv = Vector3(1.0f) / Vector3(resolution);
+        Vector3 inv = Vector3(1.0f) / resolution.cast<real>();
         for (auto &ind : voxels.get_region()) {
             voxels[ind] = tex->sample(ind.get_pos() * inv).x;
             assert_info(voxels[ind] >= 0.0f, "Density can not be negative.");
@@ -110,7 +110,7 @@ protected:
 
     // Signed distance field
     void calculate_sdf() {
-        Array3D<Vector3> nearest(resolution.x, resolution.y, resolution.z, Vector3(1e30f));
+        Array3D<Vector3> nearest(resolution, Vector3(1e30f));
         // Priority queue returns biggest element
         std::priority_queue<std::pair<real, Index3D>> pq;
         for (auto &ind : voxels.get_region()) {
@@ -120,7 +120,7 @@ protected:
                 pq.push(std::make_pair(-sdf[ind], ind));
             }
         }
-        Vector3 inv_res = Vector3(1.0f) / Vector3(resolution);
+        Vector3 inv_res = Vector3(1.0f) / Vector3(resolution.cast<real>());
         // Dijkstra
         while (!pq.empty()) {
             auto t = pq.top();
@@ -159,7 +159,7 @@ protected:
 public:
     virtual void initialize(const Config &config) override {
         VoxelVolumeMaterial::initialize(config);
-        sdf.initialize(resolution.x, resolution.y, resolution.z, 1e30f);
+        sdf.initialize(resolution, 1e30f);
         calculate_sdf();
     }
 

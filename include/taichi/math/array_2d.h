@@ -547,7 +547,7 @@ public:
             actual_size = Vector2(this->res[0], this->res[1]);
         }
 
-        Vector2 scale_factor = actual_size / res;
+        Vector2 scale_factor = actual_size / res.cast<real>();
 
         for (auto &ind : Region2D(0, res[0], 0, res[1], Vector2(0.5f, 0.5f))) {
             Vector2 p = scale_factor * ind.get_pos();

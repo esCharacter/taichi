@@ -25,14 +25,14 @@ void Array2D<T>::load(const std::string &filename) {
     int channels;
     FILE *f = fopen(filename.c_str(), "rb");
     assert_info(f != nullptr, "Image file not found: " + filename);
-    real *data = stbi_loadf(filename.c_str(), &this->width, &this->height, &channels, 0);
+    real *data = stbi_loadf(filename.c_str(), &this->res[0], &this->res[1], &channels, 0);
     assert_info(data != nullptr, "Image file load failed: " + filename + " # Msg: " + std::string(stbi_failure_reason()));
     assert_info(channels == 1 || channels == 3 || channels == 4, "Image must have channel 1, 3 or 4: " + filename);
-    this->initialize(this->width, this->height);
+    this->initialize(Vector2i(res[0], this->res[1]));
     if (channels == 1) {
-        for (int i = 0; i < this->width; i++) {
-            for (int j = 0; j < this->height; j++) {
-                real *pixel = data + ((this->height - 1 - j) * this->width + i) * channels;
+        for (int i = 0; i < this->res[0]; i++) {
+            for (int j = 0; j < this->res[1]; j++) {
+                real *pixel = data + ((this->res[1] - 1 - j) * this->res[0] + i) * channels;
                 (*this)[i][j][0] = pixel[0];
                 (*this)[i][j][1] = pixel[0];
                 (*this)[i][j][2] = pixel[0];
@@ -42,9 +42,9 @@ void Array2D<T>::load(const std::string &filename) {
         }
     }
     else {
-        for (int i = 0; i < this->width; i++) {
-            for (int j = 0; j < this->height; j++) {
-                real *pixel = data + ((this->height - 1 - j) * this->width + i) * channels;
+        for (int i = 0; i < this->res[0]; i++) {
+            for (int j = 0; j < this->res[1]; j++) {
+                real *pixel = data + ((this->res[1] - 1 - j) * this->res[0] + i) * channels;
                 (*this)[i][j][0] = pixel[0];
                 (*this)[i][j][1] = pixel[1];
                 (*this)[i][j][2] = pixel[2];
@@ -60,16 +60,16 @@ template<typename T>
 void Array2D<T>::write(const std::string &filename)
 {
     int comp = 3;
-    std::vector<unsigned char> data(this->width * this->height * comp);
-    for (int i = 0; i < this->width; i++) {
-        for (int j = 0; j < this->height; j++) {
+    std::vector<unsigned char> data(this->res[0] * this->res[1] * comp);
+    for (int i = 0; i < this->res[0]; i++) {
+        for (int j = 0; j < this->res[1]; j++) {
             for (int k = 0; k < comp; k++) {
-                data[j * this->width * comp + i * comp + k] =
-                    (unsigned char)(255.0f * clamp(this->data[i * this->height + (this->height - j - 1)][k], 0.0f, 1.0f));
+                data[j * this->res[0] * comp + i * comp + k] =
+                    (unsigned char)(255.0f * clamp(this->data[i * this->res[1] + (this->res[1] - j - 1)][k], 0.0f, 1.0f));
             }
         }
     }
-    int write_result = stbi_write_png(filename.c_str(), this->width, this->height, comp, &data[0], comp * this->width);
+    int write_result = stbi_write_png(filename.c_str(), this->res[0], this->res[1], comp, &data[0], comp * this->res[0]);
     // assert_info((bool)write_result, "Can not write image file");
 }
 
@@ -77,7 +77,7 @@ template<typename T>
 void Array2D<T>::write_text(const std::string &font_fn, const std::string &content_, real size,
     int dx, int dy) {
     std::vector<unsigned char> buffer(24 << 20, (unsigned char)0);
-    std::vector<unsigned char> screen_buffer((size_t)(this->width * this->height), (unsigned char)0);
+    std::vector<unsigned char> screen_buffer((size_t)(this->res[0] * this->res[1]), (unsigned char)0);
 
     static stbtt_fontinfo font;
     int i, j, ascent, baseline, ch = 0;
@@ -100,7 +100,7 @@ void Array2D<T>::write_text(const std::string &font_fn, const std::string &conte
         float x_shift = xpos - (float)floor(xpos);
         stbtt_GetCodepointHMetrics(&font, content[ch], &advance, &lsb);
         stbtt_GetCodepointBitmapBoxSubpixel(&font, content[ch], scale, scale, x_shift, 0, &x0, &y0, &x1, &y1);
-        stbtt_MakeCodepointBitmapSubpixel(&font, &screen_buffer[0] + this->width * (baseline + y0) + (int)xpos + x0,
+        stbtt_MakeCodepointBitmapSubpixel(&font, &screen_buffer[0] + this->res[0] * (baseline + y0) + (int)xpos + x0,
             x1 - x0, y1 - y0, 200, scale, scale, x_shift, 0, content[ch]);
         // note that this stomps the old data, so where character boxes overlap (e.g. 'lj') it's wrong
         // because this API is really for baking character bitmaps into textures. if you want to render
@@ -112,12 +112,12 @@ void Array2D<T>::write_text(const std::string &font_fn, const std::string &conte
         ++ch;
     }
     if (dy < 0) {
-        dy = this->height + dy - 1;
+        dy = this->res[1] + dy - 1;
     }
-    for (j = 0; j < this->height; ++j) {
-        for (i = 0; i < this->width; ++i) {
+    for (j = 0; j < this->res[1]; ++j) {
+        for (i = 0; i < this->res[0]; ++i) {
             int x = dx + i, y = dy + j;
-            float alpha = screen_buffer[(this->height - j - 1) * this->width + i] / 255.0f;
+            float alpha = screen_buffer[(this->res[1] - j - 1) * this->res[0] + i] / 255.0f;
             (*this)[x][y] = lerp(alpha, this->get(x, y), T(1.0f));
         }
     }

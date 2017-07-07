@@ -52,8 +52,8 @@ real DynamicLevelSet3D::sample(const Vector3 &pos, real t) const {
 }
 
 Array3D<real> DynamicLevelSet3D::rasterize(int width, int height, int depth, real t) {
-    Array3D<real> r0 = levelset0->rasterize(width, height, depth);
-    Array3D<real> r1 = levelset1->rasterize(width, height, depth);
+    Array3D<real> r0 = levelset0->rasterize(Vector3i(width, height, depth));
+    Array3D<real> r1 = levelset1->rasterize(Vector3i(width, height, depth));
     Array3D<real> out(width, height, depth);
     for (auto &ind : Region3D(0, width, 0, height, 0, depth, Vector3(0.5f, 0.5f, 0.5f))) {
         out[ind] = lerp((t - t0) / (t1 - t0), r0[ind], r1[ind]);

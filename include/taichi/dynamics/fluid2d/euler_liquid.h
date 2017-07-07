@@ -15,7 +15,7 @@
 #include <memory>
 #include <taichi/visualization/image_buffer.h>
 #include <taichi/math/stencils.h>
-#include <taichi/math/levelset_2d.h>
+#include <taichi/math/levelset.h>
 
 TC_NAMESPACE_BEGIN
 

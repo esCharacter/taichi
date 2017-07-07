@@ -35,7 +35,7 @@ public:
         Renderer::initialize(config);
         this->sampler = create_instance<Sampler>(config.get("sampler", "prand"));
         this->volumetric = config.get("volumetric", true);
-        this->buffer.initialize(width, height, Vector3(0.0f));
+        this->buffer.initialize(Vector2i(width, height), Vector3(0.0f));
         this->photon_counter = 0;
     }
 
@@ -72,11 +72,11 @@ public:
             Vector3 out_dir = normalized(camera->get_origin() - pos);
             auto test_ray = Ray(pos, out_dir);
             sg->query(test_ray);
-            Vector3d d0 = pos - camera->get_origin();
-            const double dist2 = dot(d0, d0);
+            Vector3 d0 = pos - camera->get_origin();
+            const real dist2 = dot(d0, d0);
             if (test_ray.dist > sqrt(dist2) - 1e-4f) {
                 d0 = normalized(d0);
-                const double c = dot(d0, camera->get_dir());
+                const real c = dot(d0, camera->get_dir());
                 real scale = real(abs(dot(d0, normal) / dist2 / (c * c * c)) / camera->get_pixel_scaling());
                 Vector3 co = bsdf.evaluate(in_dir, out_dir);
                 write_path_contribution(PathContribution(px, py, flux * co), scale);

@@ -12,12 +12,11 @@
 #include <taichi/common/config.h>
 #include <taichi/math/levelset.h>
 #include <taichi/visualization/rgb.h>
-#include <taichi/math/array_op.h>
 #include <taichi/math/dynamic_levelset_2d.h>
 #include <taichi/math/dynamic_levelset_3d.h>
 
 PYBIND11_MAKE_OPAQUE(std::vector<int>);
-PYBIND11_MAKE_OPAQUE(std::vector<taichi::real>);
+PYBIND11_MAKE_OPAQUE(std::vector<taichi::float32>);
 PYBIND11_MAKE_OPAQUE(std::vector<taichi::Vector2>);
 PYBIND11_MAKE_OPAQUE(std::vector<taichi::Vector3>);
 PYBIND11_MAKE_OPAQUE(std::vector<taichi::Vector4>);
@@ -57,11 +56,11 @@ std::string rasterize_levelset(const LevelSet2D &levelset, int width, int height
 }
 
 Matrix4 matrix4_translate(Matrix4 *transform, const Vector3 &offset) {
-    return glm::translate(Matrix4(1.0f), offset) * *transform;
+    return Matrix4(Vector4(), Vector4(), Vector4(), Vector4(offset, 1.0f)) * *transform;
 }
 
 Matrix4 matrix4_scale(Matrix4 *transform, const Vector3 &scales) {
-    return glm::scale(Matrix4(1.0f), scales) * *transform;
+    return Matrix4(Vector4(scales, 1.0f)) * *transform;
 }
 
 Matrix4 matrix4_scale_s(Matrix4 *transform, real s) {
@@ -69,7 +68,9 @@ Matrix4 matrix4_scale_s(Matrix4 *transform, real s) {
 }
 
 Matrix4 matrix4_rotate_angle_axis(Matrix4 *transform, real angle, const Vector3 &axis) {
-    return glm::rotate(Matrix4(1.0f), angle * pi / 180.0f, axis) * *transform;
+    NOT_IMPLEMENTED
+    //return rotate(Matrix4(1.0f), angle * pi / 180.0f, axis) * *transform;
+    return *transform;
 }
 
 Matrix4 matrix4_rotate_euler(Matrix4 *transform, const Vector3 &euler_angles) {
@@ -111,6 +112,8 @@ void array2d_to_ndarray(T *arr, uint64 output) // 'output' is actually a pointer
     }
 }
 
+;
+
 void export_math(py::module &m) {
     m.def("rasterize_levelset", rasterize_levelset);
 
@@ -118,7 +121,7 @@ void export_math(py::module &m) {
 
 #define EXPORT_ARRAY_2D_OF(T, C) \
     py::class_<Array2D<real>>(m, "Array2D" #T)  \
-            .def(py::init<int, int>()) \
+            .def(py::init<Vector2i>()) \
             .def("to_ndarray", &array2d_to_ndarray<Array2D<T>, C>) \
             .def("get_width", &Array2D<T>::get_width) \
             .def("get_height", &Array2D<T>::get_height) \
@@ -137,7 +140,7 @@ void export_math(py::module &m) {
     EXPORT_ARRAY_3D_OF(real, 1);
 
     py::class_<Array2D<Vector3>>(m, "Array2DVector3")
-            .def(py::init<int, int, Vector3>())
+            .def(py::init<Vector2i, Vector3>())
             .def("get_width", &Array2D<Vector3>::get_width)
             .def("get_height", &Array2D<Vector3>::get_height)
             .def("get_channels", &return_constant<Array2D<Vector3>, 3>)
@@ -151,7 +154,7 @@ void export_math(py::module &m) {
             .def("to_ndarray", &array2d_to_ndarray<Array2D<Vector3>, 3>);
 
     py::class_<Array2D<Vector4>>(m, "Array2DVector4")
-            .def(py::init<int, int, Vector4>())
+            .def(py::init<Vector2i, Vector4>())
             .def("get_width", &Array2D<Vector4>::get_width)
             .def("get_height", &Array2D<Vector4>::get_height)
             .def("get_channels", &return_constant<Array2D<Vector4>, 4>)
@@ -164,7 +167,7 @@ void export_math(py::module &m) {
             .def("to_ndarray", &array2d_to_ndarray<Array2D<Vector4>, 4>);
 
     py::class_<LevelSet2D, Array2D<real>>(m, "LevelSet2D")
-            .def(py::init<int, int, Vector2>())
+            .def(py::init<Vector2i, Vector2>())
             .def("get_width", &LevelSet2D::get_width)
             .def("get_height", &LevelSet2D::get_height)
             .def("get", &LevelSet2D::get_copy)
@@ -184,7 +187,7 @@ void export_math(py::module &m) {
             .def("initialize", &DynamicLevelSet3D::initialize);
 
     py::class_<LevelSet3D, std::shared_ptr<LevelSet3D>>(m, "LevelSet3D", PyArray3Dreal)
-            .def(py::init<int, int, int, Vector3>())
+            .def(py::init<Vector3i, Vector3>())
             .def("get_width", &LevelSet3D::get_width)
             .def("get_height", &LevelSet3D::get_height)
             .def("get", &LevelSet3D::get_copy)
@@ -211,10 +214,10 @@ void export_math(py::module &m) {
     py::class_<Matrix4>(m, "Matrix4")
             .def(py::init<real>())
             .def(real() * py::self)
-            .def(py::self + py::self)
-            .def(py::self - py::self)
-            .def(py::self * py::self)
-            .def(py::self / py::self)
+            //.def(py::self + py::self)
+            //.def(py::self - py::self)
+            //.def(py::self * py::self)
+            //.def(py::self / py::self)
             .def("translate", &matrix4_translate)
             .def("scale", &matrix4_scale)
             .def("scale_s", &matrix4_scale_s)
@@ -250,7 +253,8 @@ void export_math(py::module &m) {
             .def(py::self * py::self)
             .def(py::self / py::self);
 
-    py::class_<Vector3i>(m, "Vector3i")
+    py::class_<VectorNDBase<3, int, InstructionSet::AVX>>(m, "Vector3iBase");
+    py::class_<VectorND<3, int, InstructionSet::AVX>, VectorNDBase<3, int, InstructionSet::AVX>>(m, "Vector3i")
             .def(py::init<int, int, int>())
             .def_readwrite("x", &Vector3i::x)
             .def_readwrite("y", &Vector3i::y)

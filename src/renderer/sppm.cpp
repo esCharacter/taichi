@@ -21,13 +21,14 @@ void SPPMRenderer::initialize(const Config &config) {
     initial_radius = config.get_real("initial_radius");
     shrinking_radius = config.get_bool("shrinking_radius");
     stochastic_eye_ray = config.get("stochastic_eye_ray", true); // PPM or SPPM?
-    image.initialize(width, height);
+    Vector2i res(width, height);
+    image.initialize(res);
     photon_counter = 0;
     stages = 0;
-    radius2.initialize(width, height, initial_radius * initial_radius);
-    flux.initialize(width, height, Vector3(0.0f));
-    num_photons.initialize(width, height, 0LL);
-    image_direct_illum.initialize(width, height);
+    radius2.initialize(res, initial_radius * initial_radius);
+    flux.initialize(res, Vector3(0.0f));
+    num_photons.initialize(res, 0LL);
+    image_direct_illum.initialize(res);
     num_photons_per_stage = config.get("num_photons_per_stage", width * height);
     eye_ray_stages = 0;
 }

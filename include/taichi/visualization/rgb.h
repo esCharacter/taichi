@@ -9,8 +9,6 @@
 
 #pragma once
 
-#include <glm/glm.hpp>
-
 #include <taichi/common/util.h>
 #include <taichi/math/math.h>
 
