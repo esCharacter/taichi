@@ -32,9 +32,12 @@ def get_output_path(path):
 
 
 def get_asset_directory():
-    return os.environ.get('TAICHI_ASSET_DIR', os.path.join(get_root_directory(), 'taichi_assets'))
+    asset_dir = os.environ.get('TAICHI_ASSET_DIR', '').strip()
+    if asset_dir == '':
+        return os.path.join(get_root_directory(), 'taichi_assets')
+    else:
+        return asset_dir
 
 
 def get_asset_path(path, *args):
-    return os.path.join(get_asset_directory(), path, *args
-                        )
+    return os.path.join(get_asset_directory(), path, *args)

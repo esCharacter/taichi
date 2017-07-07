@@ -29,7 +29,8 @@ def create_scene():
                            translate=(0, -1, -3), scale=1, rotation=(0, 0, 0))
             scene.add_mesh(mesh)
 
-        envmap = tc.EnvironmentMap('base', filepath=tc.settings.get_asset_path('/envmaps/schoenbrunn-front_hd.hdr'))
+        fp = tc.settings.get_asset_path('envmaps/schoenbrunn-front_hd.hdr')
+        envmap = tc.EnvironmentMap('base', filepath=fp)
         envmap.set_transform(tc.core.Matrix4(1.0).rotate_euler(tc.Vector(0, -30, 0)))
         scene.set_environment_map(envmap)
 

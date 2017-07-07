@@ -67,11 +67,24 @@ Matrix4 matrix4_scale_s(Matrix4 *transform, real s) {
     return matrix4_scale(transform, Vector3(s));
 }
 
-Matrix4 matrix4_rotate_angle_axis(Matrix4 *transform, real angle, const Vector3 &axis) {
-    NOT_IMPLEMENTED
-    //return rotate(Matrix4(1.0f), angle * pi / 180.0f, axis) * *transform;
-    return *transform;
+// Reference https://en.wikipedia.org/wiki/Rotation_matrix
+Matrix4 get_rotation_matrix(Vector3 u, real angle) {
+    u = normalized(u);
+    real c = cos(angle), s = sin(angle);
+    real d = 1 - c;
+
+    auto col0 = Vector4(c + u.x * u.x * d, u.x * u.y * d - u.z * s, u.x * u.z * d + u.y * s, 0.0f);
+    auto col1 = Vector4(u.x * u.y * d + u.z * s, c + u.y * u.y * d, u.y * u.z * d - u.x * s, 0.0f);
+    auto col2 = Vector4(u.x * u.z * d - u.y * s, u.y * u.z * d + u.x * s, c + u.z * u.z * d, 0.0f);
+    auto col3 = Vector4(0.0f, 0.0f, 0.0f, 1.0f);
+
+    return Matrix4(col0, col1, col2, col3);
 }
+
+Matrix4 matrix4_rotate_angle_axis(Matrix4 *transform, real angle, const Vector3 &axis) {
+    return get_rotation_matrix(axis, angle * (pi / 180.0f)) * *transform;
+}
+
 
 Matrix4 matrix4_rotate_euler(Matrix4 *transform, const Vector3 &euler_angles) {
     Matrix4 ret = *transform;
@@ -145,6 +158,11 @@ struct VectorInitializer {
 };
 
 template <typename T>
+struct VectorInitializer<1, T> {
+    static auto get() { return py::init<T>(); }
+};
+
+template <typename T>
 struct VectorInitializer<2, T> {
     static auto get() { return py::init<T, T>(); }
 };
@@ -161,7 +179,8 @@ struct VectorInitializer<4, T> {
 
 
 template <int i, typename VEC>
-struct get_vec_field {};
+struct get_vec_field {
+};
 
 template <typename VEC>
 struct get_vec_field<0, VEC> {
@@ -235,6 +254,7 @@ struct VectorRegistration<VectorND<DIM, T, ISE>> {
 
         DEFINE_VECTOR_OF_NAMED(Vector, (vector_name + "List").c_str());
     }
+
 };
 
 void export_math(py::module &m) {
@@ -262,7 +282,7 @@ void export_math(py::module &m) {
 
     EXPORT_ARRAY_3D_OF(real, 1);
 
-    py::class_<Array2D<Vector3 >>(m, "Array2DVector3")
+    py::class_<Array2D<Vector3>>(m, "Array2DVector3")
             .def(py::init<Vector2i, Vector3>())
             .def("get_width", &Array2D<Vector3>::get_width)
             .def("get_height", &Array2D<Vector3>::get_height)
@@ -337,9 +357,9 @@ void export_math(py::module &m) {
     py::class_<Matrix4>(m, "Matrix4")
             .def(py::init<real>())
             .def(real() * py::self)
-                    //.def(py::self + py::self)
-                    //.def(py::self - py::self)
-                    //.def(py::self * py::self)
+            .def(py::self + py::self)
+            .def(py::self - py::self)
+            .def(py::self * py::self)
             .def("translate", &matrix4_translate)
             .def("scale", &matrix4_scale)
             .def("scale_s", &matrix4_scale_s)

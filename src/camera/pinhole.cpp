@@ -16,15 +16,13 @@ public:
     PinholeCamera() {}
 
     virtual void initialize(const Config &config) override {
+        Camera::initialize(config);
         fov = config.get_real("fov") / 180.0f * pi;
         this->origin = config.get_vec3("origin");
         this->look_at = config.get_vec3("look_at");
         this->up = config.get_vec3("up");
-        this->width = config.get_int("width");
-        this->height = config.get_int("height");
         set_dir_and_right();
         tan_half_fov = tan(fov / 2);
-        this->aspect_ratio = (real)width / height;
         this->transform = Matrix4(1.0f);
     }
 
@@ -51,7 +49,6 @@ public:
 private:
     real fov;
     real tan_half_fov;
-    real aspect_ratio;
 };
 
 TC_IMPLEMENTATION(Camera, PinholeCamera, "pinhole");

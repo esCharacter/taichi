@@ -109,8 +109,7 @@ void export_visual(py::module &m) {
             .def("get_output", &Renderer::get_output);
 
     py::class_<Camera, std::shared_ptr<Camera>>(m, "Camera")
-            .def("initialize",
-                 static_cast<void (Camera::*)(const Config &config)>(&Camera::initialize));
+            .def("initialize", &Camera::initialize);
 
     py::class_<ParticleRenderer, std::shared_ptr<ParticleRenderer>>(m, "ParticleRenderer")
             .def("initialize", &ParticleRenderer::initialize)

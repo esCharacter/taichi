@@ -46,7 +46,8 @@ public:
     }
 
     virtual Array2D<Vector3> get_output() override {
-        return accumulator.get_averaged();
+        auto tmp = accumulator.get_averaged();
+        return tmp;
     }
 
 protected:
@@ -268,7 +269,7 @@ void PathTracingRenderer::initialize(const Config &config) {
                 "Sum of direct_lighting_bsdf and direct_lighting_light should not be 0.");
     this->sampler = create_instance<Sampler>(config.get("sampler", "prand"));
     this->luminance_clamping = config.get("luminance_clamping", 0.0f);
-    this->accumulator = ImageAccumulator<Vector3>(width, height);
+    this->accumulator = ImageAccumulator<Vector3>(Vector2i(width, height));
     this->russian_roulette = config.get("russian_roulette", true);
     this->envmap_is = config.get("envmap_is", true);
     index = 0;
@@ -706,7 +707,7 @@ protected:
     Array2D<Vector3> buffer;
 public:
     Array2D<Vector3> get_output() override {
-        Array2D<Vector3> output(width, height);
+        Array2D<Vector3> output(Vector2i(width, height));
         float r = 1.0f / sample_count;
         for (auto &ind : output.get_region()) {
             output[ind] = buffer[ind] * r;

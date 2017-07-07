@@ -10,7 +10,7 @@ from taichi.visual.texture import Texture
 def create_scene():
     downsample = 1
     width, height = 512 / downsample, 512 / downsample
-    camera = Camera('pinhole', width=width, height=height, fov=120,
+    camera = Camera('pinhole', res=(width, height), fov=120,
                     origin=(0, -5, 10), look_at=(0, 0, 0), up=(0, 1, 0))
 
     scene = Scene()

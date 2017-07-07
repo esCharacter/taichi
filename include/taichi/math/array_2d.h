@@ -181,8 +181,8 @@ public:
         return region;
     }
 
-    ArrayND(const Vector2i &resolution, T init = T(0), Vector2 storage_offset = Vector2(0.5f)) {
-        initialize(resolution, init, storage_offset);
+    ArrayND(const Vector2i &res, T init = T(0), Vector2 storage_offset = Vector2(0.5f)) {
+        initialize(res, init, storage_offset);
     }
 
     void initialize(const Vector2i &res, T init = T(0), Vector2 storage_offset = Vector2(0.5f)) {
@@ -201,7 +201,7 @@ public:
         return ArrayND<2, T>(res);
     }
 
-    ArrayND(const Array2D<T> &arr) : ArrayND(res) {
+    ArrayND(const Array2D<T> &arr) : ArrayND(arr.res) {
         this->data = arr.data;
         this->storage_offset = arr.storage_offset;
     }

@@ -8,7 +8,7 @@ from taichi.visual.texture import Texture
 def create_scene():
     downsample = 1
     width, height = 960 / downsample, 540 / downsample
-    camera = Camera('thinlens', width=width, height=height, fov=55,
+    camera = Camera('thinlens', res=(width, height), fov=55,
                     origin=(30, 40, 50), look_at=(0, 0, 0), up=(0, 1, 0), focus=(0, 3, 0), aperture=0.1)
 
     scene = Scene()

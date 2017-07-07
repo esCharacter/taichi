@@ -233,7 +233,7 @@ public:
         return Array3D<T>(res, init, storage_offset);
     }
 
-    ArrayND(const Array3D<T> &arr) : ArrayND(res) {
+    ArrayND(const Array3D<T> &arr) : ArrayND(arr.res) {
         this->data = arr.data;
         this->storage_offset = arr.storage_offset;
     }

@@ -18,29 +18,27 @@
 
 TC_NAMESPACE_BEGIN
 
-template<typename T>
+template <typename T>
 class ImageAccumulator {
 public:
     std::vector<Spinlock> locks;
+
     ImageAccumulator() {}
 
-    ImageAccumulator(int width, int height) : width(width), height(height),
-        buffer(Vector2i(width, height)), counter(Vector2i(width, height))
-    {
-        for (int i = 0; i < width * height; i++) {
+    ImageAccumulator(Vector2i res) : buffer(res), counter(res), res(res) {
+        for (int i = 0; i < res[0] * res[1]; i++) {
             locks.push_back(Spinlock());
         }
     }
 
     Array2D<T> get_averaged(T default_value = T(0)) {
-        Array2D<T> result(width, height);
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
+        Array2D<T> result(res);
+        for (int i = 0; i < res[0]; i++) {
+            for (int j = 0; j < res[1]; j++) {
                 if (counter[i][j] > 0) {
                     real inv = (real)1 / counter[i][j];
                     result[i][j] = inv * buffer[i][j];
-                }
-                else {
+                } else {
                     result[i][j] = default_value;
                 }
             }
@@ -49,16 +47,16 @@ public:
     }
 
     void accumulate(int x, int y, T val) {
-        int lock_id = x * height + y;
+        int lock_id = x * res[1] + y;
         locks[lock_id].lock();
-        counter[x][y] ++;
+        counter[x][y]++;
         buffer[x][y] += val;
         locks[lock_id].unlock();
     }
 
     void accumulate(ImageAccumulator<T> &other) {
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
+        for (int i = 0; i < res[0]; i++) {
+            for (int j = 0; j < res[1]; j++) {
                 counter[i][j] += other.counter[i][j];
                 buffer[i][j] += other.buffer[i][j];
             }
@@ -67,17 +65,17 @@ public:
 
 
     int get_width() const {
-        return width;
+        return res[0];
     }
 
     int get_height() const {
-        return height;
+        return res[1];
     }
 
 private:
     Array2D<T> buffer;
     Array2D<int> counter;
-    int width, height;
+    Vector2i res;
 };
 
 TC_NAMESPACE_END

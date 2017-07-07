@@ -15,8 +15,13 @@
 
 TC_NAMESPACE_BEGIN
 
-class Camera : public Unit{
+class Camera : public Unit {
 public:
+    virtual void initialize(const Config &config) {
+        this->res = config.get_vec2i("res");
+        this->aspect_ratio = (real)res[0] / res[1];
+    }
+
     virtual Ray sample(Vector2 offset, Vector2 size, StateSequence &rand) {
         error("no impl");
         return Ray(Vector3(0), Vector3(0));
@@ -39,17 +44,18 @@ public:
     }
 
     int get_width() const {
-        return width;
+        return res[0];
     }
 
     int get_height() const {
-        return height;
+        return res[1];
     }
 
 protected:
     Vector3 origin, look_at, up, right, dir;
     Matrix4 transform;
-    int width, height;
+    Vector2i res;
+    real aspect_ratio;
 
     void set_dir_and_right() {
         this->dir = normalize(look_at - origin);
