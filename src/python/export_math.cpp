@@ -56,7 +56,7 @@ std::string rasterize_levelset(const LevelSet2D &levelset, int width, int height
 }
 
 Matrix4 matrix4_translate(Matrix4 *transform, const Vector3 &offset) {
-    return Matrix4(Vector4(), Vector4(), Vector4(), Vector4(offset, 1.0f)) * *transform;
+    return Matrix4(Vector4(1, 0, 0, 0), Vector4(0, 1, 0, 0), Vector4(0, 0, 1, 0), Vector4(offset, 1.0f)) * *transform;
 }
 
 Matrix4 matrix4_scale(Matrix4 *transform, const Vector3 &scales) {

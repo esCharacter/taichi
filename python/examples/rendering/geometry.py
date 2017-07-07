@@ -36,9 +36,9 @@ def create_scene():
                                                          glossiness=300),
                                    translate=(x * distance, y * distance, 2)))
 
-            mesh = tc.Mesh('plane', tc.SurfaceMaterial('emissive', color=(1, 1, 1)),
-                           translate=(30, 30, 60), scale=5, rotation=(0, 0, 180))
-            scene.add_mesh(mesh)
+        mesh = tc.Mesh('plane', tc.SurfaceMaterial('emissive', color=(1, 1, 1)),
+                       translate=(30, 30, 60), scale=5, rotation=(0, 0, 180))
+        scene.add_mesh(mesh)
 
         scene.add_mesh(tc.Mesh('plane', tc.SurfaceMaterial('pbr', diffuse=(1, 1, 1)), scale=20,
                                translate=(0, 0, 0), rotation=(90, 0, 0)))

@@ -187,11 +187,11 @@ def ndarray_to_array2d(array):
     array = array.copy()
     input_ptr = array.ctypes.data_as(ctypes.c_void_p).value
     if len(array.shape) == 2 or array.shape[2] == 1:
-        arr = taichi.core.Array2Dreal(0, 0)
+        arr = taichi.core.Array2Dreal(Vectori(0, 0))
     elif array.shape[2] == 3:
-        arr = taichi.core.Array2DVector3(0, 0, taichi.Vector(0, 0, 0))
+        arr = taichi.core.Array2DVector3(Vectori(0, 0), taichi.Vector(0, 0, 0))
     elif array.shape[2] == 4:
-        arr = taichi.core.Array2DVector4(0, 0, taichi.Vector(0, 0, 0, 0))
+        arr = taichi.core.Array2DVector4(Vectori(0, 0), taichi.Vector(0, 0, 0, 0))
     else:
         assert False, 'ndarray has to be n*m, n*m*3, or n*m*4'
     arr.from_ndarray(input_ptr, array.shape[0], array.shape[1])
