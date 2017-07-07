@@ -125,6 +125,19 @@ void array2d_to_ndarray(T *arr, uint64 output) // 'output' is actually a pointer
     }
 }
 
+// Specialize for Vector3 for the padding float32
+template <int channels>
+void array2d_to_ndarray(Array2D<Vector3> *arr, uint64 output) // 'output' is actually a pointer...
+{
+    int width = arr->get_width(), height = arr->get_height();
+    for (auto &ind : arr->get_region()) {
+        for (int k = 0; k < channels; k++) {
+            const Vector3 entry = (*arr)[ind];
+            reinterpret_cast<real *>(output)[ind.i * height * channels + ind.j * channels + k] = entry[k];
+        }
+    }
+}
+
 template <typename T>
 constexpr std::string get_type_short_name();
 

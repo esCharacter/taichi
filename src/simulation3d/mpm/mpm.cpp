@@ -342,8 +342,7 @@ void MPM<DIM>::grid_apply_boundary_conditions(const DynamicLevelSet3D &levelset,
         }
     }
     for (auto &ind : scheduler.get_active_grid_points()) {
-        if (cache[ind[0] / grid_block_size][ind[1] / grid_block_size][ind[2] / grid_block_size] ==
-            0) {
+        if (cache[ind[0] / grid_block_size][ind[1] / grid_block_size][ind[2] / grid_block_size] == 0) {
             continue;
         }
         Vector pos = Vector(0.5 + ind[0], 0.5 + ind[1], 0.5 + ind[2]);

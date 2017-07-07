@@ -142,6 +142,13 @@ struct VectorND : public VectorNDBase<DIM, T, ISE> {
         }
     }
 
+    template <int DIM_, typename T_, InstructionSetExtension ISE_>
+    VectorND(const VectorND<DIM_, T_, ISE_> &o) : VectorND() {
+        for (int i = 0; i < std::min(DIM_, DIM); i++) {
+            d[i] = o[i];
+        }
+    }
+
     // Vector3f
     template <int DIM_ = DIM, typename T_=T, InstructionSetExtension ISE_ = ISE,
             typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_> && DIM_ == 3, int> = 0>

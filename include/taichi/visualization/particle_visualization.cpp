@@ -30,7 +30,7 @@ public:
         shadowing = config.get("shadowing", 1.0f);
         alpha = config.get("alpha", 1.0f);
         light_direction = normalized(light_direction);
-        Vector3 u = abs(light_direction.y) > 0.99f ? Vector3(1, 0, 0) :
+        Vector3 u = abs(light_direction.y) > 0.999f ? Vector3(1, 0, 0) :
             normalized(cross(light_direction, Vector3(0, 1, 0)));
         Vector3 v = normalized(cross(u, light_direction));
         light_transform = transposed(Matrix3(u, v, light_direction));
@@ -47,7 +47,7 @@ public:
         for (int i = 0; i < (int)indices.size(); i++) {
             indices[i] = std::make_pair(-dot(light_direction, particles[i].position), i);
             Vector3 transformed_coord = light_transform * particles[i].position;
-            Vector2 uv(transformed_coord.x, transformed_coord.y);
+            Vector2 uv(transformed_coord);
             uv_lowerbound.x = std::min(uv_lowerbound.x, uv.x);
             uv_lowerbound.y = std::min(uv_lowerbound.y, uv.y);
             uv_upperbound.x = std::max(uv_upperbound.x, uv.x);
@@ -55,7 +55,7 @@ public:
         }
         std::sort(indices.begin(), indices.end());
         Vector2 res = (uv_upperbound - uv_lowerbound) / shadow_map_resolution;
-        Array2D<real> occlusion_buffer((int)std::ceil(res.x) + 1, (int)std::ceil(res.y) + 1, 1.0f);
+        Array2D<real> occlusion_buffer(Vector2i((int)std::ceil(res.x) + 1, (int)std::ceil(res.y) + 1), 1.0f);
         real shadow_map_scaling = 1.0f / shadow_map_resolution;
         std::vector<real> occlusion(particles.size());
 
