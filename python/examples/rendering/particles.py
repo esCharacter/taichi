@@ -53,7 +53,7 @@ def create_scene(t):
         for p in particles:
             scene.add_mesh(p.create_mesh(t))
 
-        envmap = tc.EnvironmentMap('base', filepath=tc.settings.get_asset_path('/envmaps/schoenbrunn-front_hd.hdr'))
+        envmap = tc.EnvironmentMap('base', filepath=tc.settings.get_asset_path('envmaps/schoenbrunn-front_hd.hdr'))
         envmap.set_transform(tc.core.Matrix4(1.0).rotate_euler(tc.Vector(0, -30, 0)))
         scene.set_environment_map(envmap)
 

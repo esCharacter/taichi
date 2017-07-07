@@ -65,7 +65,7 @@ def create_scene():
                                    material=tc.SurfaceMaterial('reflective', color=(1, 1, 1)), translate=(0, 1, -6),
                                    scale=(8, 0.2, 2)))
 
-        envmap = tc.EnvironmentMap('base', filepath=tc.settings.get_asset_path('/envmaps/schoenbrunn-front_hd.hdr'))
+        envmap = tc.EnvironmentMap('base', filepath=tc.settings.get_asset_path('envmaps/schoenbrunn-front_hd.hdr'))
         envmap.set_transform(tc.core.Matrix4(1.0).rotate_euler(Vector(0, 30, 0)))
         scene.set_environment_map(envmap)
 

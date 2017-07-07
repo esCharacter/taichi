@@ -22,7 +22,7 @@ def create_scene():
             scene.add_mesh(Mesh('sphere', material=material, translate=(i, -i * 1.6, -math.sin(i * 0.1)), scale=0.7))
 
         envmap_texture = Texture('sky', height=0.5, direction=0.3)
-        envmap_texture.show(res=(500, 500))
+        envmap_texture.show(res=(500, 500), post_processor=LDRDisplay())
         envmap = EnvironmentMap('base', texture=envmap_texture.id, res=(1024, 1024))
         scene.set_environment_map(envmap)
     return scene

@@ -67,7 +67,7 @@ Matrix4 matrix4_scale_s(Matrix4 *transform, real s) {
     return matrix4_scale(transform, Vector3(s));
 }
 
-// Reference https://en.wikipedia.org/wiki/Rotation_matrix
+// Reference: https://en.wikipedia.org/wiki/Rotation_matrix
 Matrix4 get_rotation_matrix(Vector3 u, real angle) {
     u = normalized(u);
     real c = cos(angle), s = sin(angle);
@@ -78,7 +78,7 @@ Matrix4 get_rotation_matrix(Vector3 u, real angle) {
     auto col2 = Vector4(u.x * u.z * d - u.y * s, u.y * u.z * d + u.x * s, c + u.z * u.z * d, 0.0f);
     auto col3 = Vector4(0.0f, 0.0f, 0.0f, 1.0f);
 
-    return Matrix4(col0, col1, col2, col3);
+    return Matrix4(col0, col1, col2, col3).transposed();
 }
 
 Matrix4 matrix4_rotate_angle_axis(Matrix4 *transform, real angle, const Vector3 &axis) {
