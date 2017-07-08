@@ -14,7 +14,6 @@
 #include <taichi/common/util.h>
 #include <taichi/math/math_scalar.h>
 
-// >= AVX 2
 #include <immintrin.h>
 
 TC_NAMESPACE_BEGIN
@@ -54,11 +53,13 @@ constexpr InstSetExt default_instruction_set = InstSetExt::AVX2;
 
 template <int DIM, typename T, InstSetExt ISE, class Enable=void>
 struct VectorNDBase {
+    static constexpr bool simd = false;
     T d[DIM];
 };
 
 template <typename T, InstSetExt ISE>
 struct VectorNDBase<1, T, ISE, void> {
+    static constexpr bool simd = false;
     union {
         T d[1];
         struct {
@@ -69,6 +70,7 @@ struct VectorNDBase<1, T, ISE, void> {
 
 template <typename T, InstSetExt ISE>
 struct VectorNDBase<2, T, ISE, void> {
+    static constexpr bool simd = false;
     union {
         T d[2];
         struct {
@@ -80,6 +82,7 @@ struct VectorNDBase<2, T, ISE, void> {
 template <typename T, InstSetExt ISE>
 struct VectorNDBase<3, T, ISE, typename std::enable_if_t<
         (!std::is_same<T, float32>::value || ISE < InstSetExt::SSE)>> {
+    static constexpr bool simd = false;
     union {
         T d[3];
         struct {
@@ -90,6 +93,7 @@ struct VectorNDBase<3, T, ISE, typename std::enable_if_t<
 
 template <InstSetExt ISE>
 struct TC_ALIGNED(16) VectorNDBase<3, float32, ISE, typename std::enable_if_t<ISE >= InstSetExt::SSE>> {
+    static constexpr bool simd = true;
     union {
         __m128 v;
         struct {
@@ -106,6 +110,7 @@ struct TC_ALIGNED(16) VectorNDBase<3, float32, ISE, typename std::enable_if_t<IS
 template <typename T, InstSetExt ISE>
 struct VectorNDBase<4, T, ISE, typename std::enable_if_t<
         (!std::is_same<T, float32>::value || ISE < InstSetExt::SSE)>> {
+    static constexpr bool simd = false;
     union {
         T d[4];
         struct {
@@ -115,7 +120,8 @@ struct VectorNDBase<4, T, ISE, typename std::enable_if_t<
 };
 
 template <InstSetExt ISE>
-struct TC_ALIGNED(16) VectorNDBase<4, float32, ISE, std::enable_if_t<ISE >= InstSetExt::SSE>> {
+struct TC_ALIGNED(16) VectorNDBase<4, float32, ISE, std::enable_if_t<(ISE >= InstSetExt::SSE)>> {
+    static constexpr bool simd = true;
     union {
         __m128 v;
         struct {
@@ -489,6 +495,18 @@ struct VectorND : public VectorNDBase<DIM, T, ISE> {
     auto length() const {
         return std::sqrt(length2());
     }
+
+    bool is_normal() const {
+        for (int i = 0; i < DIM; i++) {
+            if (!taichi::is_normal(this->d[i]))
+                return false;
+        }
+        return true;
+    }
+
+    bool abnormal() const {
+        return !this->is_normal();
+    }
 };
 
 template <int DIM, typename T, InstSetExt ISE>
@@ -526,26 +544,17 @@ using Vector3i = VectorND<3, int, default_instruction_set>;
 using Vector4i = VectorND<4, int, default_instruction_set>;
 
 // FMA: a * b + c
-inline Vector4 fused_mul_add(const Vector4 &a, const Vector4 &b, const Vector4 &c) {
+template <typename T>
+inline typename std::enable_if<T::simd && (default_instruction_set >= InstSetExt::AVX), T>::type
+fused_mul_add(const T &a, const T &b, const T &c) {
     return _mm_fmadd_ps(a, b, c);
 }
 
-// FMA: a * b + c
-inline Vector3 fused_mul_add(const Vector3 &a, const Vector3 &b, const Vector3 &c) {
-    return _mm_fmadd_ps(a, b, c);
+template <typename T>
+inline typename std::enable_if<!T::simd || (default_instruction_set < InstSetExt::AVX), T>::type
+fused_mul_add(const T &a, const T &b, const T &c) {
+    return a * b + c;
 }
-
-inline void transpose4x4(const Vector4 m[], Vector4 t[]) {
-    Vector4 t0 = _mm_unpacklo_ps(m[0], m[1]);
-    Vector4 t2 = _mm_unpacklo_ps(m[2], m[3]);
-    Vector4 t1 = _mm_unpackhi_ps(m[0], m[1]);
-    Vector4 t3 = _mm_unpackhi_ps(m[2], m[3]);
-    t[0] = _mm_movelh_ps(t0, t2);
-    t[1] = _mm_movehl_ps(t2, t0);
-    t[2] = _mm_movelh_ps(t1, t3);
-    t[3] = _mm_movehl_ps(t3, t1);
-}
-
 
 /////////////////////////////////////////////////////////////////
 /////              N dimensional Matrix
@@ -649,7 +658,7 @@ struct MatrixND {
     template <int DIM_ = DIM, typename T_=T, InstSetExt ISE_ = ISE,
             typename std::enable_if_t<!SIMD_4_32F<DIM_, T_, ISE_>, int> = 0>
     VectorND<DIM, T, ISE> operator*(const VectorND<DIM, T, ISE> &o) const {
-        VectorND <DIM, T, ISE> ret = d[0] * o[0];
+        VectorND<DIM, T, ISE> ret = d[0] * o[0];
         for (int i = 1; i < DIM; i++)
             ret += d[i] * o[i];
         return ret;
@@ -659,7 +668,7 @@ struct MatrixND {
     template <int DIM_ = DIM, typename T_=T, InstSetExt ISE_ = ISE,
             typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_> && DIM_ == 3, int> = 0>
     VectorND<DIM, T, ISE> operator*(const VectorND<DIM, T, ISE> &o) const {
-        VectorND <DIM, T, ISE> ret = o.template broadcast<2>() * d[2];
+        VectorND<DIM, T, ISE> ret = o.template broadcast<2>() * d[2];
         ret = fused_mul_add(d[1], o.template broadcast<1>(), ret);
         ret = fused_mul_add(d[0], o.template broadcast<0>(), ret);
         return ret;
@@ -668,8 +677,8 @@ struct MatrixND {
     // Matrix4
     template <int DIM_ = DIM, typename T_=T, InstSetExt ISE_ = ISE,
             typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_> && DIM_ == 4, int> = 0>
-    VectorND<DIM, T, ISE> operator*(const VectorND<DIM, T, ISE> &o) const {
-        VectorND <DIM, T, ISE> ret = o.template broadcast<3>() * d[3];
+    Vector operator*(const Vector &o) const {
+        Vector ret = o.template broadcast<3>() * d[3];
         ret = fused_mul_add(d[2], o.template broadcast<2>(), ret);
         ret = fused_mul_add(d[1], o.template broadcast<1>(), ret);
         ret = fused_mul_add(d[0], o.template broadcast<0>(), ret);
@@ -756,13 +765,32 @@ struct MatrixND {
             typename std::enable_if_t<SIMD_4_32F<DIM_, T_, ISE_> && DIM_ == 4, int> = 0>
     MatrixND transposed() const {
         MatrixND ret;
-        transpose4x4(d, ret.d);
+        Vector4 t0 = _mm_unpacklo_ps(this->d[0], this->d[1]);
+        Vector4 t2 = _mm_unpacklo_ps(this->d[2], this->d[3]);
+        Vector4 t1 = _mm_unpackhi_ps(this->d[0], this->d[1]);
+        Vector4 t3 = _mm_unpackhi_ps(this->d[2], this->d[3]);
+        ret[0] = _mm_movelh_ps(t0, t2);
+        ret[1] = _mm_movehl_ps(t2, t0);
+        ret[2] = _mm_movelh_ps(t1, t3);
+        ret[3] = _mm_movehl_ps(t3, t1);
         return ret;
     }
 
     template <typename G>
     MatrixND<DIM, G, ISE> cast() const {
         return MatrixND([=](int i) { return d[i].template cast<G>(); });
+    }
+
+    bool is_normal() const {
+        for (int i = 0; i < DIM; i++) {
+            if (!this->d[i].is_normal())
+                return false;
+        }
+        return true;
+    }
+
+    bool abnormal() const {
+        return !this->is_normal();
     }
 };
 

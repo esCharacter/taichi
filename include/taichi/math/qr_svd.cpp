@@ -156,7 +156,7 @@ void polar_decomp(Matrix3 A, Matrix3 &r, Matrix3 &s) {
     svd(A, u, sig, v);
     r = u * transposed(v);
     s = v * sig * transposed(v);
-    if (!is_normal(r)) {
+    if (r.abnormal()) {
         Matrix3 m = A;
         svd(m, u, sig, v);
         P(A);

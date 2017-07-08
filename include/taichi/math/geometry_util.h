@@ -9,9 +9,10 @@
 
 #pragma once
 
+#include <vector>
+
 #include <taichi/common/util.h>
 #include <taichi/math/math_vector.h>
-#include <taichi/math/math_constants.h>
 
 TC_NAMESPACE_BEGIN
 

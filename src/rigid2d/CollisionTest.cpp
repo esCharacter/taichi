@@ -11,7 +11,8 @@
 
 void Physics::TestCollision(Polygon *a, Polygon *b) {
     Vector2D n;
-    Line edge; int edgeId;
+    Line edge;
+    int edgeId;
     double minDepth = DBL_INF;
     int flg = 0;
     for (int i = 0; i < a->nPoints; i++) {
@@ -36,7 +37,7 @@ void Physics::TestCollision(Polygon *a, Polygon *b) {
         a->GetProjection(normal, min1, max1);
         if (max0 < min1 || max1 < min0) return;
         double d = max0 - min1;
-        if (min1 < max0 && (sgn(d - minDepth) < 0) || sgn(d - minDepth) == 0 && b->mass > a->mass) {
+        if ((min1 < max0 && (sgn(d - minDepth) < 0)) || (sgn(d - minDepth) == 0 && b->mass > a->mass)) {
             flg = 1;
             minDepth = d;
             n = normal;
@@ -57,9 +58,9 @@ void Physics::TestCollision(Polygon *a, Polygon *b) {
         pair<double, Vector2D> cons[4];
         Vector2D tan = n.GetRotate();
         Vector2D A = a->GetPoint(i),
-            B = a->GetPoint((i + 1) % a->nPoints),
-            C = b->GetPoint(j),
-            D = b->GetPoint((j + 1) % b->nPoints);
+                B = a->GetPoint((i + 1) % a->nPoints),
+                C = b->GetPoint(j),
+                D = b->GetPoint((j + 1) % b->nPoints);
         cons[0] = make_pair(tan * A, A);
         cons[1] = make_pair(tan * B, B);
         cons[2] = make_pair(tan * C, C);
@@ -69,7 +70,8 @@ void Physics::TestCollision(Polygon *a, Polygon *b) {
             constraints.push_back(new Contact(a, b, cons[1].second, n, minDepth));
             constraints.push_back(new Contact(a, b, cons[2].second, n, minDepth));
         } else {
-            constraints.push_back(new Contact(a, b, (cons[1].second + cons[2].second - Vector2D::Origin) * 0.5, n, minDepth));                
+            constraints.push_back(
+                    new Contact(a, b, (cons[1].second + cons[2].second - Vector2D::Origin) * 0.5, n, minDepth));
         }
     } else {
         Vector2D retP;
@@ -104,7 +106,8 @@ void Physics::TestCollision(Circle *a, Polygon *b) {
         a->GetProjection(normal, min1, max1);
         if (max0 < min1 || max1 < min0) return;
         Line tempEdge(b->GetPoint(i), b->GetPoint((i + 1) % b->nPoints));
-        Vector2D tempP = tempEdge.a + (a->GetCentroidPosition() - tempEdge.a) * tempEdge.v.GetDirection() * tempEdge.v.GetDirection();
+        Vector2D tempP = tempEdge.a + (a->GetCentroidPosition() - tempEdge.a) * tempEdge.v.GetDirection() *
+                                      tempEdge.v.GetDirection();
         if (tempEdge.IsInside(tempP) && max0 < max1 && min1 < max0 && max0 - min1 < minDepth) {
             minDepth = max0 - min1;
             n = normal;

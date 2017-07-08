@@ -126,5 +126,15 @@ inline bool abnormal(T m) {
     return !is_normal(m);
 }
 
+inline int64 get_largest_pot(int64 a) {
+    assert_info(a > 0, "a should be positive, instead of " + std::to_string(a));
+    // TODO: optimize
+    int64 i = 1;
+    while (i * 2 <= a) {
+        i *= 2;
+    }
+    return i;
+}
+
 TC_NAMESPACE_END
 

@@ -184,7 +184,7 @@ protected:
     virtual void write_path_contribution(const PathContribution &cont, real scale = 1.0f) {
         auto x = clamp(cont.x, 0.0f, 1.0f - 1e-7f);
         auto y = clamp(cont.y, 0.0f, 1.0f - 1e-7f);
-        if (!is_normal(cont.c)) {
+        if (cont.c.abnormal()) {
             P(cont.c);
             return;
         }
@@ -729,7 +729,7 @@ public:
     }
 
     void write_path_contribution(const PathContribution &cont, real scale = 1.0f) override {
-        if (!is_normal(cont.c)) {
+        if (cont.c.abnormal()) {
             P(cont.c);
             return;
         }

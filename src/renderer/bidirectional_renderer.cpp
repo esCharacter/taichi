@@ -330,7 +330,7 @@ PathContribution BidirectionalRenderer::connect(const Path &eye_path, const Path
                 }
                 printf("\n");
             }
-            if (print_path_policy != "none" && (abnormal(f) || abnormal(p) || abnormal(c))) {
+            if (print_path_policy != "none" && (!f.is_normal() || abnormal(p) || !c.is_normal())) {
                 printf("%d - %d\n", num_eye_vertices, num_light_vertices);
                 printf("f = %.10f %.10f %.10f, p = %.10f, c = %.10f, %.10f, %.10f\n", f[0], f[1], f[2], p,
                        c[0], c[1], c[2]);
@@ -446,7 +446,7 @@ void BidirectionalRenderer::write_path_contribution(const PathContribution &pc, 
     real total_scaling = scaling * pc.get_scaling();
     for (auto &cont : pc.contributions) {
         if (0 <= cont.x && cont.x <= 1 - eps && 0 <= cont.y && cont.y <= 1 - eps) {
-            if (abnormal(cont.c)) {
+            if (cont.c.abnormal()) {
                 P(cont.c);
                 continue;
             }

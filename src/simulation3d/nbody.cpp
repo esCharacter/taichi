@@ -107,7 +107,7 @@ protected:
             }
         }
         total_position *= 1.0f / mass;
-        if (abnormal(total_position)) {
+        if (total_position.abnormal()) {
             P(mass);
             for (int i = 0; i < 8; i++) {
                 P(i);
