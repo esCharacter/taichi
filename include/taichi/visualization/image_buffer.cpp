@@ -28,7 +28,7 @@ void Array2D<T>::load(const std::string &filename) {
     real *data = stbi_loadf(filename.c_str(), &this->res[0], &this->res[1], &channels, 0);
     assert_info(data != nullptr, "Image file load failed: " + filename + " # Msg: " + std::string(stbi_failure_reason()));
     assert_info(channels == 1 || channels == 3 || channels == 4, "Image must have channel 1, 3 or 4: " + filename);
-    this->initialize(Vector2i(res[0], this->res[1]));
+    this->initialize(Vector2i(this->res[0], this->res[1]));
     if (channels == 1) {
         for (int i = 0; i < this->res[0]; i++) {
             for (int j = 0; j < this->res[1]; j++) {

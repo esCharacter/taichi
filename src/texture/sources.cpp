@@ -89,7 +89,7 @@ public:
         real size = config.get_real("size");
         int dx = config.get_int("dx");
         int dy = config.get_int("dy");
-        image.initialize(width, height);
+        image.initialize(Vector2i(width, height));
         image.write_text(font_file_fn, content, size, dx, dy);
     }
 

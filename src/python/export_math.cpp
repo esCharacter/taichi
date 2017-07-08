@@ -35,7 +35,7 @@ int return_constant(T *) { return ret; }
 template <typename T, int channels>
 void ndarray_to_image_buffer(T *arr, uint64 input, int width, int height) // 'input' is actually a pointer...
 {
-    arr->initialize(width, height);
+    arr->initialize(Vector2i(width, height));
     for (auto &ind : arr->get_region()) {
         for (int i = 0; i < channels; i++) {
             (*arr)[ind][i] = reinterpret_cast<real *>(input)[ind.i * channels * height + ind.j * channels + i];
@@ -97,7 +97,7 @@ Matrix4 matrix4_rotate_euler(Matrix4 *transform, const Vector3 &euler_angles) {
 template <typename T, int channels>
 void ndarray_to_array2d(T *arr, long long input, int width, int height) // 'input' is actually a pointer...
 {
-    arr->initialize(width, height);
+    arr->initialize(Vector2i(width, height));
     for (auto &ind : arr->get_region()) {
         for (int i = 0; i < channels; i++) {
             (*arr)[ind][i] = reinterpret_cast<float *>(input)[ind.i * height * channels + ind.j * channels + i];
