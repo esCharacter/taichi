@@ -11,6 +11,8 @@ project(taichi)
 
 set(CMAKE_BUILD_TYPE Release)
 
+set(TAICHI_CMAKE_DIR "${CMAKE_CURRENT_LIST_DIR}/cmake/")
+
 if (WIN32)
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/")
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_ROOT}/Modules")

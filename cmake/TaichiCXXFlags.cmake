@@ -1,6 +1,6 @@
 message("Using C++ compiler: " ${CMAKE_CXX_COMPILER})
 
-include(cmake/OptimizeForArchitecture.cmake)
+include(${TAICHI_CMAKE_DIR}/OptimizeForArchitecture.cmake)
 OptimizeForArchitecture()
 
 message("**************************************************")
