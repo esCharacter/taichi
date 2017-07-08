@@ -11,6 +11,7 @@
 
 #include <cmath>
 #include <type_traits>
+#include <vector>
 #include <taichi/common/util.h>
 #include <taichi/math/math_scalar.h>
 
