@@ -13,7 +13,7 @@
 #include <taichi/image/tone_mapper.h>
 #include <taichi/common/asset_manager.h>
 #include <taichi/math/sdf.h>
-#include <taichi/math/linalg.h>
+#include <taichi/math/math.h>
 #include <taichi/system/unit_dll.h>
 #include <taichi/system/benchmark.h>
 #include <taichi/system/profiler.h>

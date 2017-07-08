@@ -9,7 +9,7 @@
 
 // My old, Olympiad for Informatics version of Kd-tree ... just for a replacement of ANN
 
-#include <taichi/math/linalg.h>
+#include <taichi/math/math.h>
 
 /*
 using namespace std;

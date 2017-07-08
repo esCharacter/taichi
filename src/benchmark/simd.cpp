@@ -8,7 +8,7 @@
 *******************************************************************************/
 
 #include <taichi/system/benchmark.h>
-#include <taichi/math/linalg.h>
+#include <taichi/math/math.h>
 
 TC_NAMESPACE_BEGIN
 

@@ -12,7 +12,7 @@
 /*
 
 #include <taichi/visualization/image_buffer.h>
-#include <taichi/math/linalg.h>
+#include <taichi/math/math.h>
 #include <taichi/physics/spectrum.h>
 #include <taichi/physics/physics_constants.h>
 

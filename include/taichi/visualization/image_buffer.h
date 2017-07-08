@@ -10,7 +10,7 @@
 #pragma once
 
 #include <memory>
-#include <taichi/math/linalg.h>
+#include <taichi/math/math.h>
 #include <taichi/math/array_2d.h>
 #include <taichi/system/threading.h>
 #include <stb_image.h>

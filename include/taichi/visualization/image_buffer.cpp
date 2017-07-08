@@ -8,7 +8,7 @@
 *******************************************************************************/
 
 #include <taichi/visualization/image_buffer.h>
-#include <taichi/math/linalg.h>
+#include <taichi/math/math.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_FAILURE_USERMSG

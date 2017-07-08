@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "math.h"
-#include "linalg.h"
+#include <taichi/math/array_fwd.h>
+#include "math_vector.h"
 #include <cstring>
 #include <cstdio>
 #include <string>

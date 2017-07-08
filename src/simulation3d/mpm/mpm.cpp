@@ -20,7 +20,7 @@
 #include <taichi/system/threading.h>
 #include <taichi/visual/texture.h>
 #include <taichi/math/math.h>
-#include <taichi/math/linalg.h>
+#include <taichi/math/math.h>
 #include <taichi/common/asset_manager.h>
 #include <taichi/system/profiler.h>
 #include "mpm_kernel.h"

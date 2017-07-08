@@ -141,8 +141,8 @@ public:
     }
 
     virtual Matrix get_energy_gradient() override {
-        real j_e = det(this->dg_e);
-        real j_p = det(this->dg_p);
+        real j_e = determinant(this->dg_e);
+        real j_p = determinant(this->dg_p);
         auto lame = get_lame_parameters();
         real mu = lame.first, lambda = lame.second;
         Matrix r, s;
@@ -222,8 +222,8 @@ public:
     };
 
     std::pair<real, real> get_lame_parameters() const {
-        real j_e = det(this->dg_e);
-        real j_p = det(this->dg_p);
+        real j_e = determinant(this->dg_e);
+        real j_p = determinant(this->dg_p);
         // real e = std::max(1e-7f, std::exp(std::min(hardening * (1.0f - j_p), 5.0f)));
         // no clamping
         real e = std::exp(hardening * (1.0f - j_p));

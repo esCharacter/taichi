@@ -22,7 +22,6 @@
 #include <taichi/common/util.h>
 #include <taichi/common/asset_manager.h>
 #include <taichi/math/math.h>
-#include <taichi/math/linalg.h>
 
 TC_NAMESPACE_BEGIN
 

@@ -10,7 +10,7 @@
 #pragma once
 
 #include <taichi/math/math.h>
-#include <taichi/math/linalg.h>
+#include <taichi/math/math.h>
 
 TC_NAMESPACE_BEGIN
 

@@ -62,7 +62,11 @@
 // Check for inf, nan?
 // #define CV_ON
 
-#include <type_traits>
+#ifdef CV_ON
+#define CV(v) if (abnormal(v)) {for (int i = 0; i < 1; i++) printf("Abnormal value %s (Ln %d)\n", #v, __LINE__); taichi::print(v); puts("");}
+#else
+#define CV(v)
+#endif
 
 void taichi_raise_assertion_failure_in_python(const char *msg);
 

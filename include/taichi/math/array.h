@@ -13,3 +13,13 @@
 #include <taichi/math/array_2d.h>
 #include <taichi/math/array_3d.h>
 #include <taichi/math/array_op.h>
+
+template <int DIM>
+class IndexND;
+
+template <int DIM>
+class RegionND;
+
+template <int DIM, typename T>
+class ArrayND;
+

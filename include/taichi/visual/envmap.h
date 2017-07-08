@@ -11,7 +11,7 @@
 
 #include <taichi/common/meta.h>
 #include <taichi/common/meta.h>
-#include <taichi/math/linalg.h>
+#include <taichi/math/math.h>
 #include <taichi/math/math.h>
 #include <taichi/visual/sampler.h>
 #include <taichi/math/discrete_sampler.h>

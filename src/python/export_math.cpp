@@ -161,7 +161,7 @@ struct get_dim {
 
 };
 
-template <int DIM, typename T, InstructionSetExtension ISE>
+template <int DIM, typename T, InstSetExt ISE>
 struct get_dim<VectorND<DIM, T, ISE>> {
     constexpr static int value = DIM;
 };
@@ -237,7 +237,7 @@ template <typename T>
 struct VectorRegistration {
 };
 
-template <int DIM, typename T, InstructionSetExtension ISE>
+template <int DIM, typename T, InstSetExt ISE>
 struct VectorRegistration<VectorND<DIM, T, ISE>> {
     static void run(py::module &m) {
         using VectorBase = VectorNDBase<DIM, T, ISE>;

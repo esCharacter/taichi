@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <taichi/math/linalg.h>
+#include <taichi/math/math.h>
 #include <taichi/visual/texture.h>
 #include <taichi/visual/volume_material.h>
 #include <taichi/common/meta.h>
