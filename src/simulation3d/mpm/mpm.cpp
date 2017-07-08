@@ -81,18 +81,17 @@ void MPM<DIM>::add_particles(const Config &config) {
     for (int i = 0; i < res[0]; i++) {
         for (int j = 0; j < res[1]; j++) {
             for (int k = 0; k < res[2]; k++) {
-                Vector coord = Vector(i + 0.5f, j + 0.5f, k + 0.5f) / res.cast<real>();
+                Vector coord = Vector(i + 0.5f, j + 0.5f, k + 0.5f) / res.template cast<real>();
                 real num = density_texture->sample(coord).x;
                 int t = (int)num + (rand() < num - int(num));
                 for (int l = 0; l < t; l++) {
                     Particle *p = nullptr;
                     if (config.get("type", std::string("ep")) == std::string("ep")) {
                         p = new EPParticle<DIM>();
-                        p->initialize(config);
                     } else {
                         p = new DPParticle<DIM>();
-                        p->initialize(config);
                     }
+                    p->initialize(config);
                     p->pos = Vector(i + rand(), j + rand(), k + rand());
                     p->mass = 1.0f;
                     p->v = config.get("initial_velocity", p->v);
@@ -151,14 +150,14 @@ void MPM<DIM>::resample() {
 
                 k = 0;
                 Vector *grid_velocity_ptr = &grid_velocity[x_min + i][y_min + j][z_min];
-                Vector3 dpos = Vector3(x_min + i, y_min + j, z_min) - pos;
+                Vector dpos = Vector(x_min + i, y_min + j, z_min) - pos;
 
-                Vector4 dw_2 = w_stages[0][i] * w_stages[1][j];
-                Vector4 dw_w = dw_2 * w_stages[2][k];
+                VectorP dw_2 = w_stages[0][i] * w_stages[1][j];
+                VectorP dw_w = dw_2 * w_stages[2][k];
                 Vector grid_vel = grid_velocity_ptr[k];
                 v += dw_w[3] * grid_vel;
-                b += Matrix3::outer_product(dpos, dw_w[3] * grid_vel);
-                cdg += Matrix3::outer_product(Vector3(dw_w), grid_vel);
+                b += Matrix::outer_product(dpos, dw_w[3] * grid_vel);
+                cdg += Matrix::outer_product(Vector(dw_w), grid_vel);
 
                 if (kernel_size >= 2) {
                     k = 1;
@@ -186,12 +185,11 @@ void MPM<DIM>::resample() {
                     dw_w = dw_2 * w_stages[2][k];
                     grid_vel = grid_velocity_ptr[k];
                     v += dw_w[3] * grid_vel;
-                    b += Matrix3::outer_product(dpos, dw_w[3] * grid_vel);
-                    cdg += Matrix3::outer_product(Vector(dw_w), grid_vel);
+                    b += Matrix::outer_product(dpos, dw_w[3] * grid_vel);
+                    cdg += Matrix::outer_product(Vector(dw_w), grid_vel);
                 }
             }
         }
-        // cdg = cdg.transposed();
         if (!apic) {
             b = Matrix(0.0f);
         }
@@ -248,11 +246,9 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
             TC_MPM3D_PREPROCESS_KERNELS
             const Vector pos = p.pos, v = p.v;
             const real mass = p.mass;
-            // We enlarge Matrix 3x3 to Matrix 4x4 for SIMD.
-            // It is, however, better to use Matrix 4x3 in the future.
-            const Matrix4 apic_b_inv_d_mass = Matrix4(p.apic_b) * ((6.0f - kernel_size) * mass);
+            const MatrixP apic_b_inv_d_mass = MatrixP(p.apic_b) * ((6.0f - kernel_size) * mass);
             const Vector mass_v = mass * v;
-            Matrix4 apic_b_inv_d_mass_with_mass_v = apic_b_inv_d_mass;
+            MatrixP apic_b_inv_d_mass_with_mass_v = apic_b_inv_d_mass;
             apic_b_inv_d_mass_with_mass_v[3] = mass_v;
             apic_b_inv_d_mass_with_mass_v[3][3] = mass;
 
@@ -264,7 +260,7 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
             //       0             mass
             // ----------------------------
 
-            const Matrix4 delta_t_tmp_force = delta_t * Matrix4(p.tmp_force);
+            const MatrixP delta_t_tmp_force(delta_t * p.tmp_force);
             int x_min = get_stencil_start(pos.x);
             int y_min = get_stencil_start(pos.y);
             int z_min = get_stencil_start(pos.z);

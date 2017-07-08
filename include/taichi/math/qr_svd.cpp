@@ -53,34 +53,26 @@ void eigen_svd(Matrix3 m, Matrix3 &u, Matrix3 &s, Matrix3 &v) {
 void ensure_non_negative_singular_values(Matrix2 &u, Matrix2 &s) {
     if (s[0][0] < 0) {
         s[0][0] = -s[0][0];
-        u[0][0] *= -1;
-        u[0][1] *= -1;
+        u[0] *= -1;
     }
     if (s[1][1] < 0) {
         s[1][1] = -s[1][1];
-        u[1][0] *= -1;
-        u[1][1] *= -1;
+        u[1] *= -1;
     }
 }
 
 void ensure_non_negative_singular_values(Matrix3 &u, Matrix3 &s) {
     if (s[0][0] < 0) {
         s[0][0] = -s[0][0];
-        u[0][0] *= -1;
-        u[0][1] *= -1;
-        u[0][2] *= -1;
+        u[0] *= -1;
     }
     if (s[1][1] < 0) {
         s[1][1] = -s[1][1];
-        u[1][0] *= -1;
-        u[1][1] *= -1;
-        u[1][2] *= -1;
+        u[1] *= -1;
     }
     if (s[2][2] < 0) {
         s[2][2] = -s[2][2];
-        u[2][0] *= -1;
-        u[2][1] *= -1;
-        u[2][2] *= -1;
+        u[2] *= -1;
     }
 }
 
@@ -104,16 +96,26 @@ void imp_svd(Matrix2 m, Matrix2 &u, Matrix2 &s, Matrix2 &v) {
 }
 
 void imp_svd(Matrix3 m, Matrix3 &u, Matrix3 &s, Matrix3 &v) {
-    JIXIE::singularValueDecomposition(
-            *(Eigen::Matrix<float, 3, 3> *)&m,
-            *(Eigen::Matrix<float, 3, 3> *)&u,
-            *(Eigen::Matrix<float, 3, 1> *)&s,
-            *(Eigen::Matrix<float, 3, 3> *)&v
-    );
-    float s_tmp[2]{s[0][1], s[0][2]};
-    memset(&s[0][0] + 1, 0, sizeof(float) * 8);
-    s[1][1] = s_tmp[0];
-    s[2][2] = s_tmp[1];
+    Eigen::Matrix<float32, 3, 3> M, U, V;
+    Eigen::Matrix<float32, 3, 1> S;
+
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            M(j, i) = m[i][j];
+        }
+    }
+
+    JIXIE::singularValueDecomposition(M, U, S, V);
+    s = u = v = Matrix3(0.0f);
+    for (int i = 0; i < 3; i++) {
+        s[i][i] = S(i, 0);
+    }
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            u[i][j] = U(j, i);
+            v[i][j] = V(j, i);
+        }
+    }
 }
 
 

@@ -27,10 +27,10 @@ if __name__ == '__main__':
     '''
 
     tex_ball = Texture('sphere', center=(0.5, 0.7, 0.5), radius=0.1) * 10
-    mpm.add_particles(density_tex=tex_ball.id, initial_velocity=(0, -5, 0), compression=1)
+    mpm.add_particles(density_tex=tex_ball.id, initial_velocity=(2, -5, 0), compression=3)
 
     tex_ball = Texture('sphere', center=(0.5, 0.3, 0.5), radius=0.1) * 10
-    mpm.add_particles(density_tex=tex_ball.id, initial_velocity=(0, 5, 0), compression=1)
+    mpm.add_particles(density_tex=tex_ball.id, initial_velocity=(0, 5, 0), compression=3)
 
     t = 0
     for i in range(step_number):

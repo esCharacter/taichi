@@ -36,16 +36,11 @@ TC_NAMESPACE_BEGIN
 template <int DIM>
 class MPM : public Simulation3D {
 public:
-    /*
-    using Vector = Vector<DIM>;
-    using VectorP = Vector<DIM + 1>;
-    using VectorI = Vector<DIM, int>;
-    using Matrix = Matrix<DIM>;
-    */
-    using Vector = Vector3;
-    using VectorP = Vector4;
-    using VectorI = Vector3i;
-    using Matrix = Matrix3;
+    using Vector = VectorND<DIM, real>;
+    using VectorP = VectorND<DIM + 1, real>;
+    using VectorI = VectorND<DIM, int>;
+    using Matrix = MatrixND<DIM, real>;
+    using MatrixP = MatrixND<DIM + 1, real>;
     static const int D = DIM;
     static const int kernel_size;
     typedef MPMParticle<DIM> Particle;
