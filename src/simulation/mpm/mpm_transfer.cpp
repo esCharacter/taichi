@@ -33,23 +33,24 @@ void MPM<DIM>::rasterize(real delta_t) {
         E += p.get_kenetic_energy();
         const Vector pos = p.pos, v = p.v;
         const real mass = p.mass;
-        const MatrixP apic_b_inv_d_mass = MatrixP(p.apic_b) * ((6.0f - Kernel::order) * mass);
+        const Matrix apic_b_inv_d_mass = p.apic_b * (Kernel::inv_D() * mass);
         const Vector mass_v = mass * v;
         const MatrixP delta_t_tmp_force(delta_t * p.tmp_force);
-        RegionND<D> region;
-        Vectori grid_base_pos([&](int i) {return Kernel::get_stencil_start(pos[i]);});
+        RegionND<D> region(VectorI(0), VectorI(Kernel::kernel_size));
+        Vectori grid_base_pos([&](int i) -> int { return Kernel::get_stencil_start(pos[i]); });
         Kernel kernel(pos);
 
         for (auto &ind: region) {
             auto i = ind.get_ipos() + grid_base_pos;
-            Vector dpos = - pos;
+            Vector dpos = i.template cast<real>() - pos;
             VectorP dw_w = kernel.get_dw_w(ind.get_ipos());
-            grid_velocity_and_mass[i] +=
-                    dw_w[D] * Vector(mass_v + apic_b_inv_d_mass * dpos, mass) + delta_t_tmp_force * Vector(dw_w);
+            VectorP delta =
+                    dw_w[D] * VectorP(mass_v + apic_b_inv_d_mass * dpos, mass) +
+                    VectorP(delta_t_tmp_force * Vector(dw_w));
+            grid_velocity_and_mass[i] += delta;
         }
-
     });
-    P(E);
+    //P(E);
 #ifdef TC_MPM_WITH_FLIP
     error("grid_back_velocity is not in the correct position");
     grid_backup_velocity();
@@ -68,6 +69,21 @@ void MPM<DIM>::resample() {
         Matrix cdg(0.0f);
         Vector pos = p.pos;
 
+        RegionND<D> region(VectorI(0), VectorI(Kernel::kernel_size));
+        Vectori grid_base_pos([&](int i) -> int { return Kernel::get_stencil_start(pos[i]); });
+        Kernel kernel(pos);
+
+        for (auto &ind: region) {
+            auto i = ind.get_ipos() + grid_base_pos;
+            auto grid_vel = grid_velocity[i];
+            Vector dpos = i.template cast<real>() - pos;
+            VectorP dw_w = kernel.get_dw_w(ind.get_ipos());
+
+            v += dw_w[D] * grid_vel;
+            b += Matrix::outer_product(dpos, dw_w[D] * grid_vel);
+            cdg += Matrix::outer_product(Vector(dw_w), grid_vel);
+        }
+
         if (!apic) {
             b = Matrix(0.0f);
         }
@@ -79,9 +95,9 @@ void MPM<DIM>::resample() {
         // APIC part + FLIP part
         p.v = (1 - alpha_delta_t) * v + alpha_delta_t * (v - bv + p.v);
 #else
-        p.v = Vector3(v);
+        p.v = v;
 #endif
-        Matrix3 dg = cdg * p.dg_e * Matrix3(p.dg_p);
+        Matrix dg = cdg * p.dg_e * p.dg_p;
         p.dg_e = cdg * p.dg_e;
         p.dg_cache = dg;
     });

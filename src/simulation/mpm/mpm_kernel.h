@@ -35,9 +35,9 @@ struct MPMKernelBase {
             for (int j = 0; j < D; j++) {
                 w_stages[j][k] = VectorP([&](int i) -> real {
                     if (j == i) {
-                        return w_cache[j][k];
-                    } else {
                         return dw_cache[j][k];
+                    } else {
+                        return w_cache[j][k];
                     }
                 });
             }
@@ -46,10 +46,14 @@ struct MPMKernelBase {
 
     VectorP get_dw_w(const VectorI &k) {
         VectorP ret = w_stages[0][k[0]];
-        for (int i = 0; i < kernel_size; i++) {
+        for (int i = 1; i < kernel_size; i++) {
             ret *= w_stages[i][k[i]];
         }
         return ret;
+    }
+
+    static real inv_D() {
+        return 6.0f - real(order);
     }
 };
 

@@ -13,7 +13,7 @@
 
 TC_NAMESPACE_BEGIN
 
-constexpr int mpm_kernel_order = 3;
+constexpr int mpm_kernel_order = 2;
 
 template <int DIM, int ORDER>
 struct MPMKernel;

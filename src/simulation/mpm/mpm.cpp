@@ -122,14 +122,11 @@ void MPM<DIM>::normalize_grid() {
         const real mass = velocity_and_mass[D];
         if (mass > 0) {
             grid_mass[ind] = mass;
-            CV(grid_velocity[ind]);
-            CV(1 / grid_mass[ind]);
-            grid_velocity[ind] = (1.0f / mass) * (*reinterpret_cast<Vector *>(&velocity_and_mass));
-            CV(grid_velocity[ind]);
+            grid_velocity[ind] = (1.0f / mass) * Vector(velocity_and_mass);
             E += 0.5f * mass * grid_velocity[ind].length2();
         }
     }
-    P(E);
+    //P(E);
 }
 
 template <int DIM>
@@ -242,7 +239,7 @@ void MPM<DIM>::substep() {
         TC_PROFILE("rasterize", rasterize(t_int_increment * base_delta_t));
         TC_PROFILE("normalize_grid", normalize_grid());
         TC_PROFILE("external_force", grid_apply_external_force(gravity, t_int_increment * base_delta_t));
-        // TC_PROFILE("boundary_condition", grid_apply_boundary_conditions(this->levelset, this->current_t));
+        TC_PROFILE("boundary_condition", grid_apply_boundary_conditions(this->levelset, this->current_t));
 #ifdef CV_ON
         for (auto &p: particles) {
             if (abnormal(p->dg_e)) {
