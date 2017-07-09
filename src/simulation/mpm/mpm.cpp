@@ -126,7 +126,7 @@ void MPM<DIM>::normalize_grid() {
             E += 0.5f * mass * grid_velocity[ind].length2();
         }
     }
-    //P(E);
+    P(E);
 }
 
 template <int DIM>

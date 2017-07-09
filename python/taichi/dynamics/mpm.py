@@ -51,7 +51,10 @@ class MPM:
         self.c.add_particles(P(**kwargs))
 
     def update_levelset(self, t0, t1):
-        levelset = tc.core.DynamicLevelSet3D()
+        if len(self.res) == 2:
+            levelset = tc.core.DynamicLevelSet2D()
+        else:
+            levelset = tc.core.DynamicLevelSet3D()
         levelset.initialize(t0, t1, self.levelset_generator(t0).levelset, self.levelset_generator(t1).levelset)
         self.c.set_levelset(levelset)
 
@@ -85,9 +88,10 @@ class MPM:
         particles = self.c.get_render_particles()
         particles.write(self.directory + '/particles%05d.bin' % self.frame)
         res = map(float, self.res)
+        r = res[0]
         if not camera:
-            camera = Camera('pinhole', origin=(0, res[1] * 0.4, res[2] * 1.4),
-                            look_at=(0, -res[1] * 0.5, 0), up=(0, 1, 0), fov=90,
+            camera = Camera('pinhole', origin=(0, r * 0.4, r * 1.4),
+                            look_at=(0, -r * 0.5, 0), up=(0, 1, 0), fov=90,
                             width=10, height=10)
         self.particle_renderer.set_camera(camera)
         self.particle_renderer.render(image_buffer, particles)
