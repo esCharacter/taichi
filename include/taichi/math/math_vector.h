@@ -11,6 +11,7 @@
 
 #include <cmath>
 #include <type_traits>
+#include <functional>
 #include <taichi/common/util.h>
 #include <taichi/math/math_scalar.h>
 
@@ -280,6 +281,13 @@ struct VectorND : public VectorNDBase<DIM, T, ISE> {
         return *this;
     }
 
+    auto map(T (f)(T)) const -> VectorND<DIM, decltype(f(T(0))), ISE> {
+        VectorND<DIM, decltype(f(T(0))), ISE> ret;
+        for (int i = 0; i < DIM; i++)
+            ret[i] = f(this->d[i]);
+        return ret;
+    }
+
     VectorND &operator=(const VectorND &o) {
         return this->set([&](int i) { return o[i]; });
     }
@@ -413,6 +421,14 @@ struct VectorND : public VectorNDBase<DIM, T, ISE> {
         return VectorND([&](int i) { return taichi::clamp(d[i], a[i], b[i]); });
     }
 
+    T min() const {
+        T ret = this->d[0];
+        for (int i = 1; i < DIM; i++) {
+            ret = std::min(ret, this->d[i]);
+        }
+        return ret;
+    }
+
     T max() const {
         T ret = this->d[0];
         for (int i = 1; i < DIM; i++) {
@@ -506,6 +522,22 @@ struct VectorND : public VectorNDBase<DIM, T, ISE> {
 
     bool abnormal() const {
         return !this->is_normal();
+    }
+
+    static VectorND rand() {
+        VectorND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = taichi::rand();
+        }
+        return ret;
+    }
+
+    T sum() const {
+        T ret(0);
+        for (int i = 0; i < DIM; i++) {
+            ret += this->d[i];
+        }
+        return ret;
     }
 };
 
@@ -791,6 +823,30 @@ struct MatrixND {
 
     bool abnormal() const {
         return !this->is_normal();
+    }
+
+    static MatrixND rand() {
+        MatrixND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = Vector::rand();
+        }
+        return ret;
+    }
+
+    Vector diag() const {
+        Vector ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = this->d[i][i];
+        }
+        return ret;
+    }
+
+    T sum() const {
+        T ret(0);
+        for (int i = 0; i < DIM; i++) {
+            ret += this->d[i]->sum();
+        }
+        return ret;
     }
 };
 

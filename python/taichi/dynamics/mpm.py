@@ -13,7 +13,7 @@ import taichi as tc
 
 class MPM3:
     def __init__(self, **kwargs):
-        self.c = tc_core.create_simulation3d('mpm')
+        self.c = tc_core.create_simulation3('mpm')
         self.c.initialize(P(**kwargs))
         self.task_id = get_unique_task_id()
         self.directory = tc.get_output_path(self.task_id)

@@ -13,47 +13,59 @@
 TC_NAMESPACE_BEGIN
 
 template <int DIM>
+VectorND<DIM, real> min(const VectorND<DIM, real> &a, const VectorND<DIM, real> &b) {
+    VectorND<DIM, real> ret;
+    for (int i = 0; i < DIM; i++) {
+        ret[i] = std::min(a[i], b[i]);
+    }
+    return ret;
+}
+
+template <int DIM>
+VectorND<DIM, real> max(const VectorND<DIM, real> &a, const VectorND<DIM, real> &b) {
+    VectorND<DIM, real> ret;
+    for (int i = 0; i < DIM; i++) {
+        ret[i] = std::max(a[i], b[i]);
+    }
+    return ret;
+}
+
+template <int DIM>
 void MPMScheduler<DIM>::expand(bool expand_vel, bool expand_state) {
     Array<int> new_states;
     Array<int> old_states;
     if (expand_state) {
         old_states = states;
     }
-    min_vel_expanded = Vector3(1e30f, 1e30f, 1e30f);
-    max_vel_expanded = Vector3(-1e30f, -1e30f, -1e30f);
+    min_vel_expanded = Vector(1e30f);
+    max_vel_expanded = Vector(-1e30f);
     new_states.initialize(res, 0);
 
-    auto update = [&](const Index3D ind, int dx, int dy, int dz,
-                      const Array<Vector3> &min_vel,
-                      const Array<Vector3> &max_vel,
-                      Array<Vector3> &new_min_vel,
-                      Array<Vector3> &new_max_vel,
+    auto update = [&](const IndexND<DIM> ind, Vectori d,
+                      const Array<Vector> &min_vel,
+                      const Array<Vector> &max_vel,
+                      Array<Vector> &new_min_vel,
+                      Array<Vector> &new_max_vel,
                       const Array<int> &states, Array<int> &new_states) -> void {
         if (expand_vel) {
-            auto &tmp_min = new_min_vel[ind.neighbour(dx, dy, dz)];
-            tmp_min[0] = std::min(tmp_min[0], min_vel[ind][0]);
-            tmp_min[1] = std::min(tmp_min[1], min_vel[ind][1]);
-            tmp_min[2] = std::min(tmp_min[2], min_vel[ind][2]);
-            auto &tmp_max = new_max_vel[ind.neighbour(dx, dy, dz)];
-            tmp_max[0] = std::max(tmp_max[0], max_vel[ind][0]);
-            tmp_max[1] = std::max(tmp_max[1], max_vel[ind][1]);
-            tmp_max[2] = std::max(tmp_max[2], max_vel[ind][2]);
+            auto &tmp_min = new_min_vel[ind.neighbour(d)];
+            tmp_min = min(tmp_min, min_vel[ind]);
+            auto &tmp_max = new_max_vel[ind.neighbour(d)];
+            tmp_max = max(tmp_max, max_vel[ind]);
         }
         if (expand_state) {
             if (states[ind])
-                new_states[ind.neighbour(dx, dy, dz)] = 1;
+                new_states[ind.neighbour(d)] = 1;
         }
     };
 
     for (auto &ind : states.get_region()) {
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                for (int dz = -1; dz <= 1; dz++) {
-                    if (states.inside(ind.neighbour(dx, dy, dz)))
-                        update(ind, dx, dy, dz, min_vel, max_vel, min_vel_expanded, max_vel_expanded, states,
-                               new_states);
-                }
-            }
+        RegionND<DIM> R(Vectori(-1), Vectori(2));
+        for (auto &ind_d: R) {
+            Vectori d = ind_d.get_ipos();
+            if (states.inside(ind.neighbour(d)))
+                update(ind, d, min_vel, max_vel, min_vel_expanded, max_vel_expanded, states,
+                       new_states);
         }
     }
     if (expand_state) {
@@ -67,18 +79,15 @@ void MPMScheduler<DIM>::update() {
     // Use <= here since grid_res = sim_res + 1
     active_particles.clear();
     active_grid_points.clear();
-    for (int i = 0; i <= sim_res[0]; i++) {
-        for (int j = 0; j <= sim_res[1]; j++) {
-            for (int k = 0; k <= sim_res[2]; k++) {
-                if (states[i / grid_block_size][j / grid_block_size][k / grid_block_size] != 0) {
-                    active_grid_points.push_back(Vector3i(i, j, k));
-                }
-            }
+    for (auto &ind_i : RegionND<DIM>(Vectori(0), res)) {
+        auto i = ind_i.get_ipos();
+        if (states[i / Vectori(grid_block_size)] != 0) {
+            active_grid_points.push_back(i);
         }
     }
     for (auto &ind : states.get_region()) {
         if (states[ind] != 0) {
-            for (auto &p : particle_groups[res[2] * res[1] * ind.i + res[2] * ind.j + ind.k]) {
+            for (auto &p : particle_groups[linearize(ind.get_ipos())]) {
                 active_particles.push_back(p);
             }
         }
@@ -92,8 +101,8 @@ void MPMScheduler<DIM>::update() {
                   return a->key() < b->key();
               });
     for (auto &p :active_particles) {
-        p->pos = Vector3(10.0f);
-        p->v = Vector3(0.0f);
+        p->pos = Vector(10.0f);
+        p->v = Vector(0.0f);
     }
     */
 }
@@ -122,7 +131,7 @@ void MPMScheduler<DIM>::update_particle_groups() {
         if (states[ind] == 0) {
             continue;
         }
-        particle_groups[res[2] * res[1] * ind.i + res[2] * ind.j + ind.k].clear();
+        particle_groups[linearize(ind)].clear();
         updated[ind] = 1;
     }
     for (auto &p : active_particles) {
@@ -132,15 +141,13 @@ void MPMScheduler<DIM>::update_particle_groups() {
 
 template <int DIM>
 void MPMScheduler<DIM>::insert_particle(MPMParticle<DIM> *p, bool is_new_particle) {
-    int x = int(p->pos.x / grid_block_size);
-    int y = int(p->pos.y / grid_block_size);
-    int z = int(p->pos.z / grid_block_size);
-    if (states.inside(x, y, z)) {
-        int index = res[2] * res[1] * x + res[2] * y + z;
+    Vectori i(p->pos.template cast<int>() / Vectori(grid_block_size));
+    if (states.inside(i)) {
+        int index = linearize(i);
         particle_groups[index].push_back(p);
-        updated[x][y][z] = 1;
+        updated[i] = 1;
         if (is_new_particle) {
-            max_dt_int[x][y][z] = 1;
+            max_dt_int[i] = 1;
             active_particles.push_back(p);
         }
     }
@@ -156,9 +163,9 @@ void MPMScheduler<DIM>::update_dt_limits(real t) {
         updated[ind] = 0;
         max_dt_int_strength[ind] = 1LL << 60;
         max_dt_int_cfl[ind] = 1LL << 60;
-        min_vel[ind] = Vector3(1e30f, 1e30f, 1e30f);
-        max_vel[ind] = Vector3(-1e30f, -1e30f, -1e30f);
-        for (auto &p : particle_groups[res[2] * res[1] * ind.i + res[2] * ind.j + ind.k]) {
+        min_vel[ind] = Vector(1e30f);
+        max_vel[ind] = Vector(-1e30f);
+        for (auto &p : particle_groups[linearize(ind)]) {
             int64 march_interval;
             int64 allowed_t_int_inc = (int64)(strength_dt_mul * p->get_allowed_dt() / base_delta_t);
             if (allowed_t_int_inc <= 0) {
@@ -169,25 +176,16 @@ void MPMScheduler<DIM>::update_dt_limits(real t) {
             max_dt_int_strength[ind] = std::min(max_dt_int_strength[ind],
                                                 march_interval);
             auto &tmp_min = min_vel[ind];
-            tmp_min[0] = std::min(tmp_min[0], p->v.x);
-            tmp_min[1] = std::min(tmp_min[1], p->v.y);
-            tmp_min[2] = std::min(tmp_min[2], p->v.z);
+            tmp_min = min(tmp_min, p->v);
             auto &tmp_max = max_vel[ind];
-            tmp_max[0] = std::max(tmp_max[0], p->v.x);
-            tmp_max[1] = std::max(tmp_max[1], p->v.y);
-            tmp_max[2] = std::max(tmp_max[2], p->v.z);
+            tmp_max = max(tmp_max, p->v);
         }
     }
     // Expand velocity
     expand(true, false);
 
     for (auto &ind : min_vel.get_region()) {
-        real block_vel = std::max(
-                std::max(
-                        max_vel_expanded[ind][0] - min_vel_expanded[ind][0],
-                        max_vel_expanded[ind][1] - min_vel_expanded[ind][1]),
-                max_vel_expanded[ind][2] - min_vel_expanded[ind][2]
-        ) + 1e-7f;
+        real block_vel = (max_vel_expanded[ind] - min_vel_expanded[ind]).max() + 1e-7f;
         if (block_vel < 0) {
             // Blocks with no particles
             continue;
@@ -198,11 +196,11 @@ void MPMScheduler<DIM>::update_dt_limits(real t) {
             cfl_limit = 1;
         }
         real block_absolute_vel = 1e-7f;
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < DIM; i++) {
             block_absolute_vel = std::max(block_absolute_vel, std::abs(min_vel_expanded[ind][i]));
             block_absolute_vel = std::max(block_absolute_vel, std::abs(max_vel_expanded[ind][i]));
         }
-        Vector3 levelset_query_position = Vector3(ind.get_pos() * real(grid_block_size));
+        Vector levelset_query_position = Vector(ind.get_pos() * real(grid_block_size));
 
         real last_distance;
         if (levelset->inside(levelset_query_position)) {
@@ -222,16 +220,12 @@ void MPMScheduler<DIM>::update_dt_limits(real t) {
 template <int DIM>
 void MPMScheduler<DIM>::update_particle_states() {
     for (auto &p : get_active_particles()) {
-        Vector3i low_res_pos(
-                int(p->pos.x / grid_block_size),
-                int(p->pos.y / grid_block_size),
-                int(p->pos.z / grid_block_size)
-        );
+        Vectori low_res_pos = p->pos.template cast<int>() / Vectori(grid_block_size);
         if (states[low_res_pos] == 2) {
-            p->color = Vector3(1.0f);
+            p->color = Vector(1.0f);
             p->state = Particle::UPDATING;
         } else {
-            p->color = Vector3(0.7f);
+            p->color = Vector(0.7f);
             p->state = Particle::BUFFER;
         }
     }
@@ -241,7 +235,7 @@ template <int DIM>
 void MPMScheduler<DIM>::reset_particle_states() {
     for (auto &p : get_active_particles()) {
         p->state = Particle::INACTIVE;
-        p->color = Vector3(0.3f);
+        p->color = Vector(0.3f);
     }
 }
 
@@ -250,20 +244,21 @@ void MPMScheduler<DIM>::enforce_smoothness(int64 t_int_increment) {
     Array<int64> new_max_dt_int = max_dt_int;
     for (auto &ind : states.get_region()) {
         if (states[ind] != 0) {
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dy = -1; dy <= 1; dy++) {
-                    for (int dz = -1; dz <= 1; dz++) {
-                        auto neighbour_ind = ind.neighbour(dx, dy, dz);
-                        if (max_dt_int.inside(neighbour_ind)) {
-                            new_max_dt_int[ind] = std::min(new_max_dt_int[ind], max_dt_int[neighbour_ind] * 2);
-                        }
-                    }
+            RegionND<DIM> R(Vectori(-1), Vectori(2));
+            for (auto &ind_d: R) {
+                Vectori d = ind_d.get_ipos();
+                auto neighbour_ind = ind.neighbour(d);
+                if (max_dt_int.inside(neighbour_ind)) {
+                    new_max_dt_int[ind] = std::min(new_max_dt_int[ind], max_dt_int[neighbour_ind] * 2);
                 }
             }
         }
     }
     max_dt_int = new_max_dt_int;
 }
+
+template
+class MPMScheduler<2>;
 
 template
 class MPMScheduler<3>;

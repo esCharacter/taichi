@@ -7,7 +7,7 @@ from taichi.misc.util import *
 
 class Smoke3:
     def __init__(self, **kwargs):
-        self.c = tc_core.create_simulation3d('smoke')
+        self.c = tc_core.create_simulation3('smoke')
         self.c.initialize(P(**kwargs))
         self.directory = taichi.get_output_path(get_unique_task_id())
         try:

@@ -123,6 +123,10 @@ public:
     Vector2 get_pos() const {
         return Vector2((real)i + storage_offset.x, (real)j + storage_offset.y);
     }
+
+    Vector2i get_ipos() const {
+        return Vector2i(i, j);
+    }
 };
 
 typedef IndexND<2> Index2D;
@@ -446,7 +450,7 @@ public:
         return inside(pos[0], pos[1]);
     }
 
-    bool inside(Index2D index) const {
+    bool inside(const Index2D &index) const {
         return inside(index.i, index.j);
     }
 

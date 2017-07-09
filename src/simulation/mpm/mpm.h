@@ -17,7 +17,7 @@
 
 #include <taichi/visualization/image_buffer.h>
 #include <taichi/common/meta.h>
-#include <taichi/dynamics/simulation3d.h>
+#include <taichi/dynamics/simulation.h>
 #include <taichi/math/array_3d.h>
 #include <taichi/math/qr_svd.h>
 #include <taichi/math/levelset.h>
@@ -25,7 +25,6 @@
 
 #include "mpm_scheduler.h"
 #include "mpm_particle.h"
-#include "mpm_utils.h"
 
 TC_NAMESPACE_BEGIN
 
@@ -33,24 +32,25 @@ TC_NAMESPACE_BEGIN
 // #define TC_MPM_WITH_FLIP
 
 template <int DIM>
-class MPM : public Simulation3D {
+class MPM : public Simulation<DIM> {
 public:
     using Vector = VectorND<DIM, real>;
     using VectorP = VectorND<DIM + 1, real>;
     using VectorI = VectorND<DIM, int>;
+    using Vectori = VectorND<DIM, int>;
     using Matrix = MatrixND<DIM, real>;
     using MatrixP = MatrixND<DIM + 1, real>;
     static const int D = DIM;
     static const int kernel_size;
     typedef MPMParticle<DIM> Particle;
     std::vector<MPMParticle<DIM> *> particles; // for (copy) efficiency, we do not use smart pointers here
-    Array3D<Vector> grid_velocity;
-    Array3D<real> grid_mass;
-    Array3D<Vector4> grid_velocity_and_mass;
+    ArrayND<DIM, Vector> grid_velocity;
+    ArrayND<DIM, real> grid_mass;
+    ArrayND<DIM, VectorP> grid_velocity_and_mass;
 #ifdef TC_MPM_WITH_FLIP
-    Array3D<Vector> grid_velocity_backup;
+    ArrayND<DIM, Vector> grid_velocity_backup;
 #endif
-    Array3D<Spinlock> grid_locks;
+    ArrayND<DIM, Spinlock> grid_locks;
     VectorI res;
     Vector gravity;
     bool apic;
@@ -86,7 +86,7 @@ public:
 
     void calculate_force_and_rasterize(float delta_t);
 
-    void grid_apply_boundary_conditions(const DynamicLevelSet3D &levelset, real t);
+    void grid_apply_boundary_conditions(const DynamicLevelSet<D> &levelset, real t);
 
     void grid_apply_external_force(Vector acc, real delta_t) {
         for (auto &ind : grid_mass.get_region()) {
@@ -101,14 +101,14 @@ public:
 
     template <typename T>
     void parallel_for_each_particle(const T &target) {
-        ThreadedTaskManager::run((int)particles.size(), num_threads, [&](int i) {
+        ThreadedTaskManager::run((int)particles.size(), this->num_threads, [&](int i) {
             target(*particles[i]);
         });
     }
 
     template <typename T>
     void parallel_for_each_active_particle(const T &target) {
-        ThreadedTaskManager::run((int)scheduler.get_active_particles().size(), num_threads, [&](int i) {
+        ThreadedTaskManager::run((int)scheduler.get_active_particles().size(), this->num_threads, [&](int i) {
             target(*scheduler.get_active_particles()[i]);
         });
     }
@@ -124,10 +124,10 @@ public:
     virtual void step(real dt) override {
         if (dt < 0) {
             substep();
-            request_t = current_t;
+            request_t = this->current_t;
         } else {
             request_t += dt;
-            while (current_t + base_delta_t < request_t) {
+            while (this->current_t + base_delta_t < request_t) {
                 substep();
             }
             P(t_int_increment * base_delta_t);

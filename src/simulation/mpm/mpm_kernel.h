@@ -13,30 +13,52 @@
 
 TC_NAMESPACE_BEGIN
 
+#define TC_MPM2D_PREPROCESS_STAGED_KERNELS\
+    VectorP w_stages[D][kernel_size]; \
+    for (int k = 0; k < kernel_size; k++) { \
+        w_stages[0][k] = Vector3(dw_cache[0][k], w_cache[0][k], w_cache[0][k]); \
+        w_stages[1][k] = Vector3(w_cache[1][k], dw_cache[1][k], w_cache[1][k]); \
+    }
+
 #define TC_MPM3D_PREPROCESS_STAGED_KERNELS\
-    Vector4 w_stages[3][kernel_size]; \
+    VectorP w_stages[D][kernel_size]; \
     for (int k = 0; k < kernel_size; k++) { \
         w_stages[0][k] = Vector4(dw_cache[0][k], w_cache[0][k], w_cache[0][k], w_cache[0][k]); \
         w_stages[1][k] = Vector4(w_cache[1][k], dw_cache[1][k], w_cache[1][k], w_cache[1][k]); \
         w_stages[2][k] = Vector4(w_cache[2][k], w_cache[2][k], dw_cache[2][k], w_cache[2][k]); \
     }
 
-#define TC_MPM3D_KERNEL_ORDER 2
+#define TC_MPM_KERNEL_ORDER 2
 
-template <> const int MPM<3>::kernel_size = TC_MPM3D_KERNEL_ORDER + 1;
-#if TC_MPM3D_KERNEL_ORDER == 2
+template <> const int MPM<2>::kernel_size = TC_MPM_KERNEL_ORDER + 1;
+template <> const int MPM<3>::kernel_size = TC_MPM_KERNEL_ORDER + 1;
+#if TC_MPM_KERNEL_ORDER == 2
 // Quadratic Kernel
 
-template <>
-int MPM<3>::get_stencil_start(real x) const {
+template <int DIM>
+int MPM<DIM>::get_stencil_start(real x) const {
     return int(x - 0.5f);
 }
 
-#define TC_MPM3D_PREPROCESS_KERNELS\
-    Vector4 w_cache[DIM]; \
-    Vector4 dw_cache[DIM];\
+#define TC_MPM2D_PREPROCESS_KERNELS\
+    Vector4 w_cache[D]; \
+    Vector4 dw_cache[D];\
     Vector p_fract = fract(p.pos - 0.5f); \
-    for (int k = 0; k < DIM; k++) { \
+    for (int k = 0; k < D; k++) { \
+        const Vector4 t = Vector4(p_fract[k]) - Vector4(-0.5f, 0.5f, 1.5f, 0.0f); \
+        auto tt = t * t; \
+        w_cache[k] = Vector4(0.5f, -1.0f, 0.5f, 0.0f) * tt + \
+            Vector4(-1.5, 0, 1.5, 0.0f) * t + \
+            Vector4(1.125f, 0.75f, 1.125f, 0.0f); \
+        dw_cache[k] = Vector4(-1.0f, 2.0f, -1.0f, 0.0f) * t + Vector4(1.5f, 0, -1.5f, 0.0f); \
+    } \
+    TC_MPM2D_PREPROCESS_STAGED_KERNELS
+
+#define TC_MPM3D_PREPROCESS_KERNELS\
+    Vector4 w_cache[D]; \
+    Vector4 dw_cache[D];\
+    Vector p_fract = fract(p.pos - 0.5f); \
+    for (int k = 0; k < D; k++) { \
         const Vector4 t = Vector4(p_fract[k]) - Vector4(-0.5f, 0.5f, 1.5f, 0.0f); \
         auto tt = t * t; \
         w_cache[k] = Vector4(0.5f, -1.0f, 0.5f, 0.0f) * tt + \
@@ -46,11 +68,11 @@ int MPM<3>::get_stencil_start(real x) const {
     } \
     TC_MPM3D_PREPROCESS_STAGED_KERNELS
 
-#elif TC_MPM3D_KERNEL_ORDER == 3
+#elif TC_MPM_KERNEL_ORDER == 3
 // Cubic Kernel
 
-template <>
-int MPM<3>::get_stencil_start(real x) const {
+template <int DIM>
+inline static int MPM<DIM::get_stencil_start(real x) const {
     return int(x) - 1;
 }
 

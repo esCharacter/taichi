@@ -13,7 +13,7 @@
 #include <immintrin.h>
 #include <taichi/math/qr_svd.h>
 #include <taichi/common/meta.h>
-#include <taichi/math/array_3d.h>
+#include <taichi/math/array.h>
 #include <taichi/math/levelset.h>
 #include <taichi/math/math.h>
 
@@ -29,13 +29,13 @@ inline void check_singular_value_non_negative(Matrix3 &sig) {
 template <int DIM>
 class MPMParticle {
 public:
-    using Vector = Vector3;
-    using Matrix = Matrix3;
-    using Region = Region3D;
+    using Vector = VectorND<DIM, real>;
+    using Matrix = MatrixND<DIM, real>;
+    using Region = RegionND<DIM>;
     static const int D = DIM;
     Vector3 color = Vector3(1, 0, 0);
     real vol;
-    Vector3 v;
+    Vector v;
     real mass;
     Vector pos;
     Matrix dg_e, dg_p, tmp_force;
@@ -73,10 +73,10 @@ public:
 
     virtual void plasticity() {};
 
-    virtual void resolve_collision(const DynamicLevelSet3D &levelset, real t) {
+    virtual void resolve_collision(const DynamicLevelSet<DIM> &levelset, real t) {
         real phi = levelset.sample(pos, t);
         if (phi < 0) {
-            Vector3 gradient = levelset.get_spatial_gradient(pos, t);
+            Vector gradient = levelset.get_spatial_gradient(pos, t);
             pos -= gradient * phi;
             v -= dot(gradient, v) * gradient;
         }
@@ -102,6 +102,7 @@ public:
 template <int DIM>
 class EPParticle : public MPMParticle<DIM> {
 public:
+    using Vector = typename MPMParticle<DIM>::Vector;
     using Matrix = typename MPMParticle<DIM>::Matrix;
     real hardening = 10.0f;
     real mu_0 = 58333.3, lambda_0 = 38888.9;
@@ -147,7 +148,7 @@ public:
         real mu = lame.first, lambda = lame.second;
         Matrix r, s;
         polar_decomp(this->dg_e, r, s);
-        Matrix3 grad = 2 * mu * (this->dg_e - r) +
+        Matrix grad = 2 * mu * (this->dg_e - r) +
                        lambda * (j_e - 1) * j_e * inverse(transpose(this->dg_e));
 #ifdef CV_ON
         if (abnormal(r) || abnormal(dg_e) || abnormal(s) || abnormal(inverse(dg_e)) || abnormal(grad)) {
@@ -242,6 +243,7 @@ public:
 template <int DIM>
 class DPParticle : public MPMParticle<DIM> {
 public:
+    using Vector = typename MPMParticle<DIM>::Vector;
     using Matrix = typename MPMParticle<DIM>::Matrix;
     real h_0 = 35.0f, h_1 = 9.0f, h_2 = 0.2f, h_3 = 10.0f;
     real lambda_0 = 204057.0f, mu_0 = 136038.0f;
@@ -263,21 +265,19 @@ public:
         this->dg_p = Matrix(compression);
     }
 
-    Matrix3 get_energy_gradient() override {
-        return Matrix3(1.f);
+    Matrix get_energy_gradient() override {
+        return Matrix(1.f);
     }
 
-    void project(Matrix3 sigma, real alpha, Matrix3 &sigma_out, real &out) {
+    void project(Matrix sigma, real alpha, Matrix &sigma_out, real &out) {
         const real d = this->D;
-        Matrix3 epsilon(log(sigma[0][0]), log(sigma[1][1]), log(sigma[2][2]));
-        real tr = epsilon[0][0] + epsilon[1][1] + epsilon[2][2];
-        Matrix3 epsilon_hat = epsilon - (tr) / d * Matrix3(1.0f);
-        real epsilon_for = std::sqrt(
-                epsilon[0][0] * epsilon[0][0] + epsilon[1][1] * epsilon[1][1] + epsilon[2][2] * epsilon[2][2]);
-        real epsilon_hat_for = std::sqrt(epsilon_hat[0][0] * epsilon_hat[0][0] + epsilon_hat[1][1] * epsilon_hat[1][1] +
-                                         epsilon_hat[2][2] * epsilon_hat[2][2]);
+        Matrix epsilon(sigma.diag().template map(log));
+        real tr = epsilon.diag().sum();
+        Matrix epsilon_hat = epsilon - (tr) / d * Matrix(1.0f);
+        real epsilon_for = epsilon.diag().length();
+        real epsilon_hat_for = epsilon_hat.diag().length();
         if (epsilon_hat_for <= 0 || tr > 0.0f) {
-            sigma_out = Matrix3(1.0f);
+            sigma_out = Matrix(1.0f);
             out = epsilon_for;
         } else {
             real delta_gamma = epsilon_hat_for + (d * lambda_0 + 2 * mu_0) / (2 * mu_0) * tr * alpha;
@@ -285,15 +285,15 @@ public:
                 sigma_out = sigma;
                 out = 0;
             } else {
-                Matrix3 h = epsilon - delta_gamma / epsilon_hat_for * epsilon_hat;
-                sigma_out = Matrix3(exp(h[0][0]), exp(h[1][1]), exp(h[2][2]));
+                Matrix h = epsilon - delta_gamma / epsilon_hat_for * epsilon_hat;
+                sigma_out = Matrix(h.diag().map(exp));
                 out = delta_gamma;
             }
         }
     }
 
     void calculate_force() override {
-        Matrix3 u, v, sig, dg = this->dg_e;
+        Matrix u, v, sig, dg = this->dg_e;
         svd(this->dg_e, u, sig, v);
 
 #ifdef CV_ON
@@ -302,22 +302,22 @@ public:
         assert_info(sig[2][2] > 0, "negative singular value");
 #endif
 
-        Matrix3 log_sig(log(sig[0][0]), log(sig[1][1]), log(sig[2][2]));
-        Matrix3 inv_sig(1.f / (sig[0][0]), 1.f / (sig[1][1]), 1.f / (sig[2][2]));
-        Matrix3 center =
-                2.0f * mu_0 * inv_sig * log_sig + lambda_0 * (log_sig[0][0] + log_sig[1][1] + log_sig[2][2]) * inv_sig;
+        Matrix log_sig(sig.diag().map(log));
+        Matrix inv_sig(Vector(1.f) / sig.diag());
+        Matrix center =
+                2.0f * mu_0 * inv_sig * log_sig + lambda_0 * (log_sig.diag().sum()) * inv_sig;
 
         this->tmp_force = -this->vol * (u * center * transpose(v)) * transpose(dg);
     }
 
     void plasticity() override {
-        Matrix3 u, v, sig;
+        Matrix u, v, sig;
         svd(this->dg_e, u, sig, v);
-        Matrix3 t(1.0f);
+        Matrix t(1.0f);
         real delta_q = 0;
         project(sig, alpha, t, delta_q);
-        Matrix3 rec = u * sig * transpose(v);
-        Matrix3 diff = rec - this->dg_e;
+        Matrix rec = u * sig * transpose(v);
+        Matrix diff = rec - this->dg_e;
 #ifdef CV_ON
         if (!(frobenius_norm(diff) < 1e-4f)) {
             // debug code

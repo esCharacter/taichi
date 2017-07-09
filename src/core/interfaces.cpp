@@ -12,7 +12,7 @@
 #include <taichi/common/task.h>
 #include <taichi/visual/camera.h>
 #include <taichi/dynamics/fluid2d/fluid.h>
-#include <taichi/dynamics/simulation3d.h>
+#include <taichi/dynamics/simulation.h>
 #include <taichi/visual/texture.h>
 #include <taichi/visual/envmap.h>
 #include <taichi/image/tone_mapper.h>
@@ -20,8 +20,7 @@
 #include <taichi/math/sdf.h>
 #include <taichi/visual/renderer.h>
 #include <taichi/visual/sampler.h>
-#include <taichi/dynamics/poisson_solver2d.h>
-#include <taichi/dynamics/poisson_solver3d.h>
+#include <taichi/dynamics/poisson_solver.h>
 #include <taichi/visual/surface_material.h>
 #include <taichi/visual/volume_material.h>
 #include <taichi/visual/ray_intersection.h>
@@ -32,7 +31,8 @@
 TC_NAMESPACE_BEGIN
 
 TC_INTERFACE_DEF(Camera, "camera");
-TC_INTERFACE_DEF(Simulation3D, "simulation3d")
+TC_INTERFACE_DEF(Simulation2D, "simulation2")
+TC_INTERFACE_DEF(Simulation3D, "simulation3")
 TC_INTERFACE_DEF(Texture, "texture")
 TC_INTERFACE_DEF(EnvironmentMap, "envmap")
 TC_INTERFACE_DEF(ToneMapper, "tone_mapper")

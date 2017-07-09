@@ -9,9 +9,8 @@
 
 #include "fluid_3d.h"
 #include <taichi/common/util.h>
-#include <taichi/math/array_3d.h>
-#include <taichi/math/array_2d.h>
-#include <taichi/dynamics/poisson_solver3d.h>
+#include <taichi/math/array.h>
+#include <taichi/dynamics/poisson_solver.h>
 #include <taichi/visualization/particle_visualization.h>
 #include <taichi/common/asset_manager.h>
 #include <taichi/system/timer.h>

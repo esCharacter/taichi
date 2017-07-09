@@ -11,7 +11,7 @@ from taichi.gui.image_viewer import show_image
 
 class NBody:
     def __init__(self, **kwargs):
-        self.c = tc_core.create_simulation3d('nbody')
+        self.c = tc_core.create_simulation3('nbody')
         self.c.initialize(P(**kwargs))
         self.directory = taichi.get_output_path(get_unique_task_id())
         try:

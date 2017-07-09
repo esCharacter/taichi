@@ -9,7 +9,7 @@
 
 #include <taichi/math/array_3d.h>
 #include <taichi/system/timer.h>
-#include <taichi/dynamics/poisson_solver3d.h>
+#include <taichi/dynamics/poisson_solver.h>
 
 TC_NAMESPACE_BEGIN
 

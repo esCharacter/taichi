@@ -142,6 +142,10 @@ public:
     Vector3 get_pos() const {
         return Vector3((real)i + storage_offset.x, (real)j + storage_offset.y, (real)k + storage_offset.z);
     }
+
+    Vector3i get_ipos() const {
+        return Vector3i(i, j, k);
+    }
 };
 
 using Index3D = IndexND<3>;
@@ -489,7 +493,11 @@ public:
         return 0 <= i && i < res[0] && 0 <= j && j < res[1] && 0 <= k && k < res[2];
     }
 
-    bool inside(Index3D index) const {
+    bool inside(const Vector3i &pos) const {
+        return inside(pos[0], pos[1], pos[2]);
+    }
+
+    bool inside(const Index3D &index) const {
         return inside(index.i, index.j, index.k);
     }
 

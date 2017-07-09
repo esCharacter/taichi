@@ -38,7 +38,7 @@ TC_NAMESPACE_BEGIN
 
 template <int DIM>
 void MPM<DIM>::initialize(const Config &config) {
-    Simulation3D::initialize(config);
+    Simulation<DIM>::initialize(config);
     res = config.get("resolution", VectorI(1.0f));
     gravity = config.get("gravity", Vector(0.0f));
     use_mpi = config.get("use_mpi", false);
@@ -72,34 +72,31 @@ void MPM<DIM>::initialize(const Config &config) {
     grid_mass.initialize(res + VectorI(1), 0, Vector(0.0f));
     grid_velocity_and_mass.initialize(res + VectorI(1), VectorP(0.0f), Vector(0.0f));
     grid_locks.initialize(res + VectorI(1), 0, Vector(0.0f));
-    scheduler.initialize(res, base_delta_t, cfl, strength_dt_mul, &levelset, mpi_world_rank, grid_block_size);
+    scheduler.initialize(res, base_delta_t, cfl, strength_dt_mul, &this->levelset, mpi_world_rank, grid_block_size);
 }
 
 template <int DIM>
 void MPM<DIM>::add_particles(const Config &config) {
     std::shared_ptr<Texture> density_texture = AssetManager::get_asset<Texture>(config.get_int("density_tex"));
-    for (int i = 0; i < res[0]; i++) {
-        for (int j = 0; j < res[1]; j++) {
-            for (int k = 0; k < res[2]; k++) {
-                Vector coord = Vector(i + 0.5f, j + 0.5f, k + 0.5f) / res.template cast<real>();
-                real num = density_texture->sample(coord).x;
-                int t = (int)num + (rand() < num - int(num));
-                for (int l = 0; l < t; l++) {
-                    Particle *p = nullptr;
-                    if (config.get("type", std::string("ep")) == std::string("ep")) {
-                        p = new EPParticle<DIM>();
-                    } else {
-                        p = new DPParticle<DIM>();
-                    }
-                    p->initialize(config);
-                    p->pos = Vector(i + rand(), j + rand(), k + rand());
-                    p->mass = 1.0f;
-                    p->v = config.get("initial_velocity", p->v);
-                    p->last_update = current_t_int;
-                    particles.push_back(p);
-                    scheduler.insert_particle(p, true);
-                }
+    auto region = RegionND<DIM>(Vectori(0), res);
+    for (auto &ind: region) {
+        Vector coord = (ind.get_ipos().template cast<real>() + Vector::rand()) / res.template cast<real>();
+        real num = density_texture->sample(coord).x;
+        int t = (int)num + (rand() < num - int(num));
+        for (int l = 0; l < t; l++) {
+            Particle *p = nullptr;
+            if (config.get("type", std::string("ep")) == std::string("ep")) {
+                p = new EPParticle<DIM>();
+            } else {
+                p = new DPParticle<DIM>();
             }
+            p->initialize(config);
+            p->pos = ind.get_ipos().template cast<real>() + Vector::rand();
+            p->mass = 1.0f;
+            p->v = config.get("initial_velocity", p->v);
+            p->last_update = current_t_int;
+            particles.push_back(p);
+            scheduler.insert_particle(p, true);
         }
     }
     P(particles.size());
@@ -109,7 +106,7 @@ template <int DIM>
 std::vector<RenderParticle> MPM<DIM>::get_render_particles() const {
     std::vector<RenderParticle> render_particles;
     render_particles.reserve(particles.size());
-    Vector center(res[0] / 2.0f, res[1] / 2.0f, res[2] / 2.0f);
+    Vector center(res.template cast<real>() * 0.5f);
     for (auto p_p : particles) {
         Particle &p = *p_p;
         // at least synchronize the position
@@ -125,8 +122,89 @@ std::vector<RenderParticle> MPM<DIM>::get_render_particles() const {
     return render_particles;
 }
 
-template <int DIM>
-void MPM<DIM>::resample() {
+template <>
+void MPM<2>::resample() {
+    real alpha_delta_t = 1;
+    if (apic)
+        alpha_delta_t = 0;
+    parallel_for_each_active_particle([&](Particle &p) {
+        real delta_t = base_delta_t * (current_t_int - p.last_update);
+        Vector v(0.0f), bv(0.0f);
+        Matrix b(0.0f);
+        Matrix cdg(0.0f);
+        Vector pos = p.pos;
+        TC_MPM2D_PREPROCESS_KERNELS
+        int x_min = get_stencil_start(pos.x);
+        int y_min = get_stencil_start(pos.y);
+        // TODO: FLIP velocity sample is temporarily disabled
+        for (int i = 0; i < kernel_size; i++) {
+            // Note: forth coordinate of the second parameter to Matrix3::outer_product
+            // is ignored.
+            //
+            int j;
+
+            j = 0;
+            Vector *grid_velocity_ptr = &grid_velocity[x_min + i][y_min];
+            Vector dpos = Vector(x_min + i, y_min) - pos;
+
+            VectorP dw_2 = w_stages[0][i];
+            VectorP dw_w = dw_2 * w_stages[2][j];
+            Vector grid_vel = grid_velocity_ptr[j];
+            v += dw_w[D] * grid_vel;
+            b += Matrix::outer_product(dpos, dw_w[D] * grid_vel);
+            cdg += Matrix::outer_product(Vector(dw_w), grid_vel);
+
+            if (kernel_size >= 2) {
+                j = 1;
+                dpos += Vector(0.0f, 1.0f);
+                dw_w = dw_2 * w_stages[1][j];
+                grid_vel = grid_velocity_ptr[j];
+                v += dw_w[D] * grid_vel;
+                b += Matrix3::outer_product(dpos, dw_w[D] * grid_vel);
+                cdg += Matrix3::outer_product(Vector(dw_w), grid_vel);
+            }
+
+            if (kernel_size >= 3) {
+                j = 2;
+                dpos += Vector(0.0f, 1.0f);
+                dw_w = dw_2 * w_stages[1][j];
+                grid_vel = grid_velocity_ptr[j];
+                v += dw_w[D] * grid_vel;
+                b += Matrix3::outer_product(dpos, dw_w[D] * grid_vel);
+                cdg += Matrix3::outer_product(Vector(dw_w), grid_vel);
+            }
+
+            if (kernel_size >= 4) {
+                j = 3;
+                dpos += Vector(0.0f, 1.0f);
+                dw_w = dw_2 * w_stages[1][j];
+                grid_vel = grid_velocity_ptr[j];
+                v += dw_w[D] * grid_vel;
+                b += Matrix::outer_product(dpos, dw_w[D] * grid_vel);
+                cdg += Matrix::outer_product(Vector(dw_w), grid_vel);
+            }
+        }
+        if (!apic) {
+            b = Matrix(0.0f);
+        }
+        // We should use an std::exp here, but that is too slow...
+        real damping = std::max(0.0f, 1.0f - delta_t * affine_damping);
+        p.apic_b = Matrix(b * damping);
+        cdg = Matrix(1.0f) + delta_t * cdg;
+#ifdef TC_MPM_WITH_FLIP
+        // APIC part + FLIP part
+        p.v = (1 - alpha_delta_t) * v + alpha_delta_t * (v - bv + p.v);
+#else
+        p.v = Vector3(v);
+#endif
+        Matrix3 dg = cdg * p.dg_e * Matrix3(p.dg_p);
+        p.dg_e = cdg * p.dg_e;
+        p.dg_cache = dg;
+    });
+}
+
+template <>
+void MPM<3>::resample() {
     real alpha_delta_t = 1;
     if (apic)
         alpha_delta_t = 0;
@@ -229,8 +307,8 @@ void MPM<DIM>::resample() {
     });
 }
 
-template <int DIM>
-void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
+template <>
+void MPM<2>::calculate_force_and_rasterize(real delta_t) {
     {
         Profiler _("calculate force");
         parallel_for_each_active_particle([&](Particle &p) {
@@ -249,8 +327,8 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
             const MatrixP apic_b_inv_d_mass = MatrixP(p.apic_b) * ((6.0f - kernel_size) * mass);
             const Vector mass_v = mass * v;
             MatrixP apic_b_inv_d_mass_with_mass_v = apic_b_inv_d_mass;
-            apic_b_inv_d_mass_with_mass_v[3] = mass_v;
-            apic_b_inv_d_mass_with_mass_v[3][3] = mass;
+            apic_b_inv_d_mass_with_mass_v[D] = mass_v;
+            apic_b_inv_d_mass_with_mass_v[D][D] = mass;
 
             // apic_b_mass_with_mass_v
             // ----------------------------
@@ -261,45 +339,136 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
             // ----------------------------
 
             const MatrixP delta_t_tmp_force(delta_t * p.tmp_force);
-            int x_min = get_stencil_start(pos.x);
-            int y_min = get_stencil_start(pos.y);
-            int z_min = get_stencil_start(pos.z);
+            Vectori c_min([&](int i) -> int { return this->get_stencil_start(pos[i]); });
+            for (int i = 0; i < kernel_size; i++) {
+                // v_contribution = v + 3 * apic_b * d_pos;
+                // Vector4 rast_v = mass_v + (apic_b_inv_d_mass * d_pos);
+
+                const VectorP dw_2 = w_stages[0][i];
+                VectorP *ptr = &grid_velocity_and_mass[c_min[0] + i][c_min[1]];
+
+                const VectorP d_pos = c_min.template cast<real>() + VectorP(i, 0.0f, 1.0f) - VectorP(pos);
+
+                VectorP base_vel_and_mass = apic_b_inv_d_mass_with_mass_v * d_pos;
+                VectorP dw_w = dw_2 * w_stages[D - 1][0];
+                *ptr += dw_w[D] * base_vel_and_mass +
+                        Matrix(delta_t_tmp_force) * Vector(dw_w);
+                ptr += 1;
+
+                if (kernel_size >= 2) {
+                    base_vel_and_mass += apic_b_inv_d_mass_with_mass_v[D - 1];
+                    dw_w = dw_2 * w_stages[D - 1][1];
+                    *ptr += dw_w[D] * base_vel_and_mass +
+                            Matrix(delta_t_tmp_force) * Vector(dw_w);
+                    ptr += 1;
+                }
+
+                if (kernel_size >= 3) {
+                    base_vel_and_mass += apic_b_inv_d_mass_with_mass_v[D - 1];
+                    dw_w = dw_2 * w_stages[D - 1][2];
+                    *ptr += dw_w[D] * base_vel_and_mass +
+                            Matrix(delta_t_tmp_force) * Vector(dw_w);
+                    ptr += 1;
+                }
+
+                if (kernel_size >= 4) {
+                    base_vel_and_mass += apic_b_inv_d_mass_with_mass_v[D - 1];
+                    dw_w = dw_2 * w_stages[D - 1][3];
+                    *ptr += dw_w[D] * base_vel_and_mass +
+                            Matrix(delta_t_tmp_force) * Vector(dw_w);
+                }
+            }
+        });
+    }
+    {
+        Profiler _("normalize");
+        for (auto ind : grid_mass.get_region()) {
+            auto &velocity_and_mass = grid_velocity_and_mass[ind];
+            const real mass = velocity_and_mass[D];
+            if (mass > 0) {
+                grid_mass[ind] = mass;
+                CV(grid_velocity[ind]);
+                CV(1 / grid_mass[ind]);
+                grid_velocity[ind] = (1.0f / mass) * (*reinterpret_cast<Vector *>(&velocity_and_mass));
+                CV(grid_velocity[ind]);
+            }
+        }
+    }
+#ifdef TC_MPM_WITH_FLIP
+    error("grid_back_velocity is not in the correct position");
+    grid_backup_velocity();
+#endif
+}
+
+template <>
+void MPM<3>::calculate_force_and_rasterize(real delta_t) {
+    {
+        Profiler _("calculate force");
+        parallel_for_each_active_particle([&](Particle &p) {
+            p.calculate_force();
+        });
+    }
+    TC_PROFILE("reset velocity_and_mass", grid_velocity_and_mass.reset(Vector4(0.0f)));
+    TC_PROFILE("reset velocity", grid_velocity.reset(Vector(0.0f)));
+    TC_PROFILE("reset mass", grid_mass.reset(0.0f));
+    {
+        Profiler _("rasterize velocity, mass, and force");
+        parallel_for_each_active_particle([&](Particle &p) {
+            TC_MPM3D_PREPROCESS_KERNELS
+            const Vector pos = p.pos, v = p.v;
+            const real mass = p.mass;
+            const MatrixP apic_b_inv_d_mass = MatrixP(p.apic_b) * ((6.0f - kernel_size) * mass);
+            const Vector mass_v = mass * v;
+            MatrixP apic_b_inv_d_mass_with_mass_v = apic_b_inv_d_mass;
+            apic_b_inv_d_mass_with_mass_v[D] = mass_v;
+            apic_b_inv_d_mass_with_mass_v[D][D] = mass;
+
+            // apic_b_mass_with_mass_v
+            // ----------------------------
+            //               |
+            //    APIC       |   mass * v
+            // --------------|
+            //       0             mass
+            // ----------------------------
+
+            const MatrixP delta_t_tmp_force(delta_t * p.tmp_force);
+            Vectori c_min([&](int i) -> int { return this->get_stencil_start(pos[i]); });
             for (int i = 0; i < kernel_size; i++) {
                 for (int j = 0; j < kernel_size; j++) {
                     // v_contribution = v + 3 * apic_b * d_pos;
                     // Vector4 rast_v = mass_v + (apic_b_inv_d_mass * d_pos);
 
                     const VectorP dw_2 = w_stages[0][i] * w_stages[1][j];
-                    VectorP *ptr = &grid_velocity_and_mass[x_min + i][y_min + j][z_min];
+                    VectorP *ptr = &grid_velocity_and_mass[c_min[0] + i][c_min[1] + j][c_min[2]];
 
-                    const VectorP d_pos = VectorP(x_min + i, y_min + j, z_min, 1.0f) - VectorP(pos);
+                    const VectorP d_pos = c_min.template cast<real>() + VectorP(i, j, 0.0f, 1.0f) - VectorP(pos);
 
                     VectorP base_vel_and_mass = apic_b_inv_d_mass_with_mass_v * d_pos;
-                    VectorP dw_w = dw_2 * w_stages[2][0];
-                    *ptr += dw_w[3] * base_vel_and_mass +
+                    VectorP dw_w = dw_2 * w_stages[D - 1][0];
+                    *ptr += dw_w[D] * base_vel_and_mass +
                             delta_t_tmp_force.multiply_vec3(dw_w);
                     ptr += 1;
 
                     if (kernel_size >= 2) {
-                        base_vel_and_mass += apic_b_inv_d_mass_with_mass_v[2];
-                        dw_w = dw_2 * w_stages[2][1];
-                        *ptr += dw_w[3] * base_vel_and_mass +
+                        base_vel_and_mass += apic_b_inv_d_mass_with_mass_v[D - 1];
+                        dw_w = dw_2 * w_stages[D - 1][1];
+                        *ptr += dw_w[D] * base_vel_and_mass +
                                 delta_t_tmp_force.multiply_vec3(dw_w);
                         ptr += 1;
                     }
 
                     if (kernel_size >= 3) {
-                        base_vel_and_mass += apic_b_inv_d_mass_with_mass_v[2];
-                        dw_w = dw_2 * w_stages[2][2];
-                        *ptr += dw_w[3] * base_vel_and_mass +
+                        base_vel_and_mass += apic_b_inv_d_mass_with_mass_v[D - 1];
+                        dw_w = dw_2 * w_stages[D - 1][2];
+                        *ptr += dw_w[D] * base_vel_and_mass +
                                 delta_t_tmp_force.multiply_vec3(dw_w);
                         ptr += 1;
                     }
 
                     if (kernel_size >= 4) {
-                        base_vel_and_mass += apic_b_inv_d_mass_with_mass_v[2];
-                        dw_w = dw_2 * w_stages[2][3];
-                        *ptr += dw_w[3] * base_vel_and_mass +
+                        base_vel_and_mass += apic_b_inv_d_mass_with_mass_v[D - 1];
+                        dw_w = dw_2 * w_stages[D - 1][3];
+                        *ptr += dw_w[D] * base_vel_and_mass +
                                 delta_t_tmp_force.multiply_vec3(dw_w);
                     }
                 }
@@ -310,7 +479,7 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
         Profiler _("normalize");
         for (auto ind : grid_mass.get_region()) {
             auto &velocity_and_mass = grid_velocity_and_mass[ind];
-            const real mass = velocity_and_mass[3];
+            const real mass = velocity_and_mass[D];
             if (mass > 0) {
                 grid_mass[ind] = mass;
                 CV(grid_velocity[ind]);
@@ -327,10 +496,10 @@ void MPM<DIM>::calculate_force_and_rasterize(real delta_t) {
 }
 
 template <int DIM>
-void MPM<DIM>::grid_apply_boundary_conditions(const DynamicLevelSet3D &levelset, real t) {
-    Array3D<int> cache(scheduler.res, 0);
+void MPM<DIM>::grid_apply_boundary_conditions(const DynamicLevelSet<D> &levelset, real t) {
+    ArrayND<DIM, int> cache(scheduler.res, 0);
     for (auto ind: cache.get_region()) {
-        Vector pos = Vector(0.5 + ind[0], 0.5 + ind[1], 0.5 + ind[2]) * real(grid_block_size);
+        Vector pos = Vector(ind.get_pos()) * real(grid_block_size);
         if (levelset.sample(pos, t) < grid_block_size) {
             cache[ind] = 1;
         } else {
@@ -338,10 +507,10 @@ void MPM<DIM>::grid_apply_boundary_conditions(const DynamicLevelSet3D &levelset,
         }
     }
     for (auto &ind : scheduler.get_active_grid_points()) {
-        if (cache[ind[0] / grid_block_size][ind[1] / grid_block_size][ind[2] / grid_block_size] == 0) {
+        if (cache[ind / Vector3i(grid_block_size)] == 0) {
             continue;
         }
-        Vector pos = Vector(0.5 + ind[0], 0.5 + ind[1], 0.5 + ind[2]);
+        Vector pos = Vector(ind) + Vector(0.5f);
         real phi = levelset.sample(pos, t);
         if (1 < phi || phi < -3) continue;
         Vector n = levelset.get_spatial_gradient(pos, t);
@@ -372,7 +541,7 @@ template <int DIM>
 void MPM<DIM>::particle_collision_resolution(real t) {
     parallel_for_each_active_particle([&](Particle &p) {
         if (p.state == Particle::UPDATING) {
-            p.resolve_collision(levelset, t);
+            p.resolve_collision(this->levelset, t);
         }
     });
 }
@@ -387,7 +556,7 @@ void MPM<DIM>::substep() {
             scheduler.reset_particle_states();
             old_t_int = current_t_int;
             scheduler.reset();
-            scheduler.update_dt_limits(current_t);
+            scheduler.update_dt_limits(this->current_t);
 
             original_t_int_increment = std::min(get_largest_pot(int64(maximum_delta_t / base_delta_t)),
                                                 scheduler.update_max_dt_int(current_t_int));
@@ -395,7 +564,7 @@ void MPM<DIM>::substep() {
             t_int_increment = original_t_int_increment - current_t_int % original_t_int_increment;
 
             current_t_int += t_int_increment;
-            current_t = current_t_int * base_delta_t;
+            this->current_t = current_t_int * base_delta_t;
 
             scheduler.set_time(current_t_int);
 
@@ -411,14 +580,14 @@ void MPM<DIM>::substep() {
                 p->state = Particle::UPDATING;
             }
             current_t_int += t_int_increment;
-            current_t = current_t_int * base_delta_t;
+            this->current_t = current_t_int * base_delta_t;
         }
         if (!use_mpi) {
             TC_PROFILE("update", scheduler.update());
         }
         TC_PROFILE("calculate_force_and_rasterize", calculate_force_and_rasterize(t_int_increment * base_delta_t));
         TC_PROFILE("external_force", grid_apply_external_force(gravity, t_int_increment * base_delta_t));
-        TC_PROFILE("boundary_condition", grid_apply_boundary_conditions(levelset, current_t));
+        TC_PROFILE("boundary_condition", grid_apply_boundary_conditions(this->levelset, this->current_t));
 #ifdef CV_ON
         for (auto &p: particles) {
             if (abnormal(p->dg_e)) {
@@ -454,14 +623,12 @@ void MPM<DIM>::substep() {
                 if (p.state == Particle::UPDATING) {
                     p.pos += (current_t_int - p.last_update) * base_delta_t * p.v;
                     p.last_update = current_t_int;
-                    p.pos.x = clamp(p.pos.x, 0.0f, res[0] - eps);
-                    p.pos.y = clamp(p.pos.y, 0.0f, res[1] - eps);
-                    p.pos.z = clamp(p.pos.z, 0.0f, res[2] - eps);
+                    p.pos = p.pos.clamp(Vector(0.0f), res - Vector(eps));
                     p.plasticity();
                 }
             });
         }
-        TC_PROFILE("particle_collision", particle_collision_resolution(current_t));
+        TC_PROFILE("particle_collision", particle_collision_resolution(this->current_t));
         if (async) {
             scheduler.enforce_smoothness(original_t_int_increment);
         }
@@ -682,8 +849,7 @@ void MPM<DIM>::clear_boundary_particles() {
     int deleted = 0;
     for (auto p : scheduler.get_active_particles()) {
         auto pos = p->pos;
-        if (pos.x < bound || pos.y < bound || pos.z < bound ||
-            pos.x > res[0] - bound || pos.y > res[1] - bound || pos.z > res[2] - bound) {
+        if (pos.min() < bound || (pos - res).max() > -bound) {
             deleted += 1;
             continue;
         }
@@ -703,7 +869,11 @@ MPM<DIM>::~MPM() {
     }
 }
 
+typedef MPM<2> MPM2D;
 typedef MPM<3> MPM3D;
+
+template
+class MPM<2>;
 
 template
 class MPM<3>;

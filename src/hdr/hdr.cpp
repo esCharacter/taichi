@@ -10,7 +10,7 @@
 #include <taichi/image/tone_mapper.h>
 #include <taichi/math/array_op.h>
 #include <taichi/physics/physics_constants.h>
-#include <taichi/dynamics/poisson_solver2d.h>
+#include <taichi/dynamics/poisson_solver.h>
 
 TC_NAMESPACE_BEGIN
 

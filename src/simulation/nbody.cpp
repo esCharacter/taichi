@@ -7,7 +7,7 @@
     the MIT license as written in the LICENSE file.
 *******************************************************************************/
 
-#include <taichi/dynamics/simulation3d.h>
+#include <taichi/dynamics/simulation.h>
 #include <taichi/visualization/particle_visualization.h>
 #include <taichi/visual/texture.h>
 

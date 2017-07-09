@@ -9,7 +9,7 @@
 
 #include <taichi/python/export.h>
 #include <taichi/dynamics/fluid2d/fluid.h>
-#include <taichi/dynamics/simulation3d.h>
+#include <taichi/dynamics/simulation.h>
 #include <taichi/common/asset_manager.h>
 
 PYBIND11_MAKE_OPAQUE(std::vector<taichi::RenderParticle>);

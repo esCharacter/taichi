@@ -14,9 +14,8 @@
 #include <vector>
 #include <string>
 #include <taichi/math/array.h>
+#include <taichi/math/math.h>
 #include <taichi/math/levelset.h>
-#include <taichi/math/levelset.h>
-#include "mpm_utils.h"
 
 #include "mpm_particle.h"
 
@@ -27,6 +26,8 @@ class MPMScheduler {
 public:
 
     using Particle = MPMParticle<DIM>;
+    using Vector = VectorND<DIM, real>;
+    using Vectori = VectorND<DIM, int>;
 
     template <typename T>
     using Array = ArrayND<DIM, T>;
@@ -37,28 +38,26 @@ public:
     Array<int> belonging;
     Array<int> states;
     Array<int> updated;
-    Array<Vector3> max_vel, min_vel;
-    Array<Vector3> max_vel_expanded, min_vel_expanded;
+    Array<Vector> max_vel, min_vel;
+    Array<Vector> max_vel_expanded, min_vel_expanded;
     std::vector<std::vector<MPMParticle<DIM> *>> particle_groups;
-    Vector3i res;
-    Vector3i sim_res;
+    Vectori res;
+    Vectori sim_res;
     std::vector<MPMParticle<DIM> *> active_particles;
-    std::vector<Vector3i> active_grid_points;
-    DynamicLevelSet3D *levelset;
+    std::vector<Vectori> active_grid_points;
+    DynamicLevelSet<DIM> *levelset;
     real base_delta_t;
     real cfl, strength_dt_mul;
     int grid_block_size;
     int node_id;
 
-    void initialize(const Vector3i &sim_res, real base_delta_t, real cfl, real strength_dt_mul,
-                    DynamicLevelSet3D *levelset, int node_id, int grid_block_size) {
+    void initialize(const Vectori &sim_res, real base_delta_t, real cfl, real strength_dt_mul,
+                    DynamicLevelSet<DIM> *levelset, int node_id, int grid_block_size) {
 
         this->grid_block_size = grid_block_size;
 
         this->sim_res = sim_res;
-        res.x = (sim_res.x + grid_block_size - 1) / grid_block_size;
-        res.y = (sim_res.y + grid_block_size - 1) / grid_block_size;
-        res.z = (sim_res.z + grid_block_size - 1) / grid_block_size;
+        res = (sim_res - Vectori(1)) / Vectori(grid_block_size) + Vectori(1);
 
         this->base_delta_t = base_delta_t;
         this->levelset = levelset;
@@ -73,12 +72,12 @@ public:
             particle_groups[i] = std::vector<MPMParticle<DIM> *>();
         }
 
-        min_vel.initialize(res, Vector3(0));
-        min_vel = Vector3(1e30f, 1e30f, 1e30f);
-        max_vel.initialize(res, Vector3(0));
-        max_vel = Vector3(-1e30f, -1e30f, -1e30f);
-        min_vel_expanded.initialize(res, Vector3(0));
-        max_vel_expanded.initialize(res, Vector3(0));
+        min_vel.initialize(res, Vector(0));
+        min_vel = Vector(1e30f);
+        max_vel.initialize(res, Vector(0));
+        max_vel = Vector(-1e30f);
+        min_vel_expanded.initialize(res, Vector(0));
+        max_vel_expanded.initialize(res, Vector(0));
 
         max_dt_int_strength.initialize(res, 0);
         max_dt_int_cfl.initialize(res, 0);
@@ -90,12 +89,27 @@ public:
         states = 0;
     }
 
-    bool has_particle(const Index3D &ind) {
-        return has_particle(Vector3i(ind.i, ind.j, ind.k));
+    bool has_particle(const IndexND<DIM> &ind) {
+        return has_particle(ind.get_ipos());
     }
 
-    bool has_particle(const Vector3i &ind) {
-        return particle_groups[ind.x * res[1] * res[2] + ind.y * res[2] + ind.z].size() > 0;
+    template <int DIM_ = DIM>
+    std::enable_if_t<DIM_ == 2, int> linearize(const Vectori &ind) const {
+        return ind.x * res[1] + ind.y;
+    }
+
+    template <int DIM_ = DIM>
+    std::enable_if_t<DIM_ == 3, int> linearize(const Vectori &ind) const {
+        return ind.x * res[1] * res[2] + ind.y * res[2] + ind.z;
+    }
+
+    int linearize(const IndexND<DIM> &ind) const {
+        return this->linearize(ind.get_ipos());
+    }
+
+
+    bool has_particle(const Vectori &ind) {
+        return particle_groups[linearize(ind)].size() > 0;
     }
 
     void expand(bool expand_vel, bool expand_state);
@@ -134,7 +148,7 @@ public:
         return active_particles;
     }
 
-    const std::vector<Vector3i> &get_active_grid_points() const {
+    const std::vector<Vectori> &get_active_grid_points() const {
         return active_grid_points;
     }
 
@@ -144,21 +158,15 @@ public:
 
     void enforce_smoothness(int64 t_int_increment);
 
-    Vector3i get_rough_pos(const MPMParticle<DIM> *p) const {
-        int x = int(p->pos.x / grid_block_size);
-        int y = int(p->pos.y / grid_block_size);
-        int z = int(p->pos.z / grid_block_size);
-        return Vector3i(x, y, z);
+    Vectori get_rough_pos(const MPMParticle<DIM> *p) const {
+        return p->pos.template cast<int>() / Vectori(grid_block_size);
     }
 
-    Vector3i get_rough_pos(const Index3D &pos) const {
-        int x = pos.i / grid_block_size;
-        int y = pos.j / grid_block_size;
-        int z = pos.k / grid_block_size;
-        return Vector3i(x, y, z);
+    Vectori get_rough_pos(const IndexND<DIM> &pos) const {
+        return pos.get_ipos() / Vectori(grid_block_size);
     }
 
-    int belongs_to(const Index3D &pos) const {
+    int belongs_to(const IndexND<DIM> &pos) const {
         return belonging[get_rough_pos(pos)];
     }
 

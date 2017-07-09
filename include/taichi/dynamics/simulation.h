@@ -17,13 +17,14 @@
 
 TC_NAMESPACE_BEGIN
 
-class Simulation3D : public Unit {
+template <int DIM>
+class Simulation: public Unit {
 protected:
     real current_t = 0.0f;
     int num_threads;
-    DynamicLevelSet3D levelset;
+    DynamicLevelSet<DIM> levelset;
 public:
-    Simulation3D() {}
+    Simulation() {}
 
     virtual real get_current_time() const {
         return current_t;
@@ -46,7 +47,7 @@ public:
         return std::vector<RenderParticle>();
     }
 
-    virtual void set_levelset(const DynamicLevelSet3D &levelset) {
+    virtual void set_levelset(const DynamicLevelSet<DIM> &levelset) {
         this->levelset = levelset;
     }
 
@@ -61,6 +62,10 @@ public:
     }
 };
 
+typedef Simulation<2> Simulation2D;
+typedef Simulation<3> Simulation3D;
+
+TC_INTERFACE(Simulation2D);
 TC_INTERFACE(Simulation3D);
 
 TC_NAMESPACE_END
