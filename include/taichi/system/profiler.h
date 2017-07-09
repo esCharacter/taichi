@@ -73,7 +73,7 @@ public:
             make_indent(0);
             printf("%s\n", node->name.c_str());
         }
-        if (total_time < eps) {
+        if (total_time < 1e-6f) {
             for (auto &ch: node->childs) {
                 make_indent(1);
                 auto child_time = ch->get_averaged();

@@ -73,7 +73,7 @@ public:
 
     virtual void plasticity() {};
 
-    virtual void resolve_collision(const DynamicLevelSet<DIM> &levelset, real t) {
+    virtual void resolve_collision(const DynamicLevelSet <DIM> &levelset, real t) {
         real phi = levelset.sample(pos, t);
         if (phi < 0) {
             Vector gradient = levelset.get_spatial_gradient(pos, t);
@@ -90,6 +90,14 @@ public:
     }
 
     virtual ~MPMParticle() {}
+
+    real get_kenetic_energy() const {
+        return dot(v, v) * mass * 0.5f;
+    }
+
+    Vector get_momentum() const {
+        return mass * v;
+    }
 
     uint64 key() const {
         // 3D Morton Coding
@@ -149,7 +157,7 @@ public:
         Matrix r, s;
         polar_decomp(this->dg_e, r, s);
         Matrix grad = 2 * mu * (this->dg_e - r) +
-                       lambda * (j_e - 1) * j_e * inverse(transpose(this->dg_e));
+                      lambda * (j_e - 1) * j_e * inverse(transpose(this->dg_e));
 #ifdef CV_ON
         if (abnormal(r) || abnormal(dg_e) || abnormal(s) || abnormal(inverse(dg_e)) || abnormal(grad)) {
             P(dg_e);

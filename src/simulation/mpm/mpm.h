@@ -25,6 +25,7 @@
 
 #include "mpm_scheduler.h"
 #include "mpm_particle.h"
+#include "mpm_kernel.h"
 
 TC_NAMESPACE_BEGIN
 
@@ -40,9 +41,10 @@ public:
     using Vectori = VectorND<DIM, int>;
     using Matrix = MatrixND<DIM, real>;
     using MatrixP = MatrixND<DIM + 1, real>;
+    using Kernel = MPMKernel<DIM, mpm_kernel_order>;
     static const int D = DIM;
     static const int kernel_size;
-    typedef MPMParticle<DIM> Particle;
+    using Particle = MPMParticle<DIM>;
     std::vector<MPMParticle<DIM> *> particles; // for (copy) efficiency, we do not use smart pointers here
     ArrayND<DIM, Vector> grid_velocity;
     ArrayND<DIM, real> grid_mass;
@@ -86,7 +88,11 @@ public:
 #endif
     }
 
-    void calculate_force_and_rasterize(float delta_t);
+    void calculate_force();
+
+    void rasterize(real delta_t);
+
+    void normalize_grid();
 
     void grid_apply_boundary_conditions(const DynamicLevelSet<D> &levelset, real t);
 
@@ -151,8 +157,6 @@ public:
     void clear_boundary_particles();
 
     ~MPM();
-
-    int get_stencil_start(real x) const;
 };
 
 TC_NAMESPACE_END
