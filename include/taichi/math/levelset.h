@@ -79,4 +79,36 @@ public:
 typedef LevelSet<2> LevelSet2D;
 typedef LevelSet<3> LevelSet3D;
 
+template <int DIM>
+class DynamicLevelSet {
+public:
+    static constexpr int D = DIM;
+    using Vector = VectorND<DIM, real>;
+    using Vectori = VectorND<DIM, int>;
+    real t0, t1;
+    std::shared_ptr<LevelSet<DIM>> levelset0, levelset1;
+
+    bool inside(const Vectori pos) const {
+        return levelset0->inside(pos.template cast<real>());
+    }
+
+    bool inside(const Vector pos) const {
+        return levelset0->inside(pos);
+    }
+
+    void initialize(real _t0, real _t1, const LevelSet<DIM> &_ls0, const LevelSet<DIM> &_ls1);
+
+    // returns gradient (normalized)
+    Vector get_spatial_gradient(const Vector &pos, real t) const;
+
+    real get_temporal_derivative(const Vector &pos, real t) const;
+
+    real sample(const Vector &pos, real t) const;
+
+    ArrayND<DIM, real> rasterize(Vectori res, real t);
+};
+
+typedef DynamicLevelSet<2> DynamicLevelSet2D;
+typedef DynamicLevelSet<3> DynamicLevelSet3D;
+
 TC_NAMESPACE_END

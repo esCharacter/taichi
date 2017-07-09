@@ -46,6 +46,18 @@ public:
         this->storage_offset = storage_offset;
     }
 
+    IndexND(Vector2i start, Vector2i end, Vector2 storage_offset = Vector2(0.5f, 0.5f)) {
+        x[0] = start[0];
+        x[1] = end[0];
+        y[0] = start[1];
+        y[1] = end[1];
+        i = x[0];
+        j = y[0];
+        //offset = 0;
+        stride = y[1] - y[0];
+        this->storage_offset = storage_offset;
+    }
+
     IndexND(int i, int j) {
         this->i = i;
         this->j = j;
@@ -135,6 +147,16 @@ public:
         y[1] = y1;
         index_begin = Index2D(x0, x1, y0, y1, storage_offset);
         index_end = Index2D(x0, x1, y0, y1, storage_offset).to_end();
+        this->storage_offset = storage_offset;
+    }
+
+    RegionND(Vector2i start, Vector2i end, Vector2 storage_offset = Vector2(0.5f, 0.5f)) {
+        x[0] = start[0];
+        x[1] = end[0];
+        y[0] = start[1];
+        y[1] = end[1];
+        index_begin = Index2D(start, end, storage_offset);
+        index_end = Index2D(start, end, storage_offset).to_end();
         this->storage_offset = storage_offset;
     }
 

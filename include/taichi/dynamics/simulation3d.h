@@ -13,7 +13,7 @@
 #include <taichi/common/meta.h>
 #include <taichi/visualization/particle_visualization.h>
 #include <vector>
-#include <taichi/math/dynamic_levelset_3d.h>
+#include <taichi/math/levelset.h>
 
 TC_NAMESPACE_BEGIN
 

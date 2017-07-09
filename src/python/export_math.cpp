@@ -12,8 +12,7 @@
 #include <taichi/common/config.h>
 #include <taichi/math/levelset.h>
 #include <taichi/visualization/rgb.h>
-#include <taichi/math/dynamic_levelset_2d.h>
-#include <taichi/math/dynamic_levelset_3d.h>
+#include <taichi/math/levelset.h>
 
 PYBIND11_MAKE_OPAQUE(std::vector<int>);
 PYBIND11_MAKE_OPAQUE(std::vector<taichi::float32>);

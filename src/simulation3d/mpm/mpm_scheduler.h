@@ -15,7 +15,7 @@
 #include <string>
 #include <taichi/math/array.h>
 #include <taichi/math/levelset.h>
-#include <taichi/math/dynamic_levelset_3d.h>
+#include <taichi/math/levelset.h>
 #include "mpm_utils.h"
 
 #include "mpm_particle.h"

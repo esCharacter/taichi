@@ -44,10 +44,29 @@ public:
         this->storage_offset = storage_offset;
     }
 
+    IndexND(Vector3i start, Vector3i end, Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f)) {
+        x[0] = start[0];
+        x[1] = end[0];
+        y[0] = start[1];
+        y[1] = end[1];
+        z[0] = start[2];
+        z[1] = end[2];
+        i = x[0];
+        j = y[0];
+        k = z[0];
+        this->storage_offset = storage_offset;
+    }
+
     IndexND(int i, int j, int k) {
         this->i = i;
         this->j = j;
         this->k = k;
+    }
+
+    IndexND(Vector3i p) {
+        this->i = p[0];
+        this->j = p[1];
+        this->k = p[2];
     }
 
 
@@ -149,6 +168,18 @@ public:
         z[1] = z1;
         index_begin = Index3D(x0, x1, y0, y1, z0, z1, storage_offset);
         index_end = Index3D(x0, x1, y0, y1, z0, z1, storage_offset).to_end();
+        this->storage_offset = storage_offset;
+    }
+
+    RegionND(Vector3i start, Vector3i end, Vector3 storage_offset = Vector3(0.5f, 0.5f, 0.5f)) {
+        x[0] = start[0];
+        x[1] = end[0];
+        y[0] = start[1];
+        y[1] = end[1];
+        z[0] = start[2];
+        z[1] = end[2];
+        index_begin = Index3D(start, end, storage_offset);
+        index_end = Index3D(start, end, storage_offset).to_end();
         this->storage_offset = storage_offset;
     }
 

@@ -232,7 +232,98 @@ Vector3 LevelSet<3>::get_gradient(const Vector3 &pos) const {
     return Vector3(gx, gy, gz);
 }
 
-template class LevelSet<2>;
-template class LevelSet<3>;
+template
+class LevelSet<2>;
+
+template
+class LevelSet<3>;
+
+template <int DIM>
+void DynamicLevelSet<DIM>::initialize(real _t0, real _t1, const LevelSet<DIM> &_ls0, const LevelSet<DIM> &_ls1) {
+    t0 = _t0;
+    t1 = _t1;
+    levelset0 = std::make_shared<LevelSet<DIM>>(_ls0);
+    levelset1 = std::make_shared<LevelSet<DIM>>(_ls1);
+}
+
+template <>
+DynamicLevelSet<2>::Vector
+DynamicLevelSet<2>::
+get_spatial_gradient(const DynamicLevelSet<2>::Vector &pos, real t) const {
+    Vector2 gxy0 = levelset0->get_gradient(pos);
+    Vector2 gxy1 = levelset1->get_gradient(pos);
+    real gx = lerp((t - t0) / (t1 - t0), gxy0.x, gxy1.x);
+    real gy = lerp((t - t0) / (t1 - t0), gxy0.y, gxy1.y);
+    Vector2 gradient = Vector2(gx, gy);
+    if (length(gradient) < 1e-10f)
+        return Vector2(1, 0);
+    else
+        return normalize(gradient);
+}
+
+template <>
+DynamicLevelSet<3>::Vector
+DynamicLevelSet<3>::
+get_spatial_gradient(const DynamicLevelSet<3>::Vector &pos, real t) const {
+    Vector3 gxyz0 = levelset0->get_gradient(pos);
+    Vector3 gxyz1 = levelset1->get_gradient(pos);
+    real gx = lerp((t - t0) / (t1 - t0), gxyz0.x, gxyz1.x);
+    real gy = lerp((t - t0) / (t1 - t0), gxyz0.y, gxyz1.y);
+    real gz = lerp((t - t0) / (t1 - t0), gxyz0.z, gxyz1.z);
+    Vector3 gradient = Vector3(gx, gy, gz);
+    if (length(gradient) < 1e-10f)
+        return Vector3(1, 0, 0);
+    else
+        return normalize(gradient);
+}
+
+
+template <int DIM>
+real DynamicLevelSet<DIM>::get_temporal_derivative(const typename DynamicLevelSet<DIM>::Vector &pos, real t) const {
+    real l0 = levelset0->get(pos);
+    real l1 = levelset1->get(pos);
+    return (l1 - l0) / (t1 - t0);
+}
+
+template <int DIM>
+real DynamicLevelSet<DIM>::sample(const typename DynamicLevelSet<DIM>::Vector &pos, real t) const {
+    real l1 = levelset0->get(pos);
+    real l2 = levelset1->get(pos);
+    return lerp((t - t0) / (t1 - t0), l1, l2);
+}
+
+template <>
+Array3D<real> DynamicLevelSet<3>::rasterize(Vector3i res, real t) {
+    Array3D<real> r0 = levelset0->rasterize(res);
+    Array3D<real> r1 = levelset1->rasterize(res);
+    Array3D<real> out(res);
+    for (auto &ind : Region3D(Vector3i(0), res, Vector3(0.5f, 0.5f, 0.5f))) {
+        out[ind] = lerp((t - t0) / (t1 - t0), r0[ind], r1[ind]);
+        if (std::isnan(out[ind])) {
+            out[ind] = std::numeric_limits<real>::infinity();
+        }
+    }
+    return out;
+}
+
+template <>
+Array2D<real> DynamicLevelSet<2>::rasterize(Vector2i res, real t) {
+    Array2D<real> r0 = levelset0->rasterize(res);
+    Array2D<real> r1 = levelset1->rasterize(res);
+    Array2D<real> out(res);
+    for (auto &ind : Region2D(Vector2i(0), res, Vector2(0.5f, 0.5f))) {
+        out[ind] = lerp((t - t0) / (t1 - t0), r0[ind], r1[ind]);
+        if (std::isnan(out[ind])) {
+            out[ind] = std::numeric_limits<real>::infinity();
+        }
+    }
+    return out;
+}
+
+template
+class DynamicLevelSet<2>;
+
+template
+class DynamicLevelSet<3>;
 
 TC_NAMESPACE_END
