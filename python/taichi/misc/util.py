@@ -170,6 +170,7 @@ def arange(x, y, d):
         x += d
 
 
+# TODO: remove this...
 def P(**kwargs):
     return config_from_dict(kwargs)
 

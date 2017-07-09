@@ -24,6 +24,9 @@ protected:
     int num_threads;
     DynamicLevelSet<DIM> levelset;
 public:
+
+    static constexpr int D = DIM;
+
     Simulation() {}
 
     virtual real get_current_time() const {

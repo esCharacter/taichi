@@ -1,6 +1,6 @@
 import math
 
-from taichi.dynamics.mpm import MPM3
+from taichi.dynamics.mpm import MPM
 from taichi.core import tc_core
 from taichi.misc.util import Vector
 from taichi.visual import *
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     downsample = grid_downsample
     resolution = (511 / downsample, 127 / downsample, 255 / downsample)
 
-    mpm = MPM3(resolution=resolution, gravity=(0, -20, 0), async=True, num_threads=8, strength_dt_mul=4)
+    mpm = MPM(resolution=resolution, gravity=(0, -20, 0), async=True, num_threads=8, strength_dt_mul=4)
 
     tex = Texture('image', filename=tc.get_asset_path('textures/taichi_words.png')) * 8
     tex = Texture('bound', tex=tex, axis=2, bounds=(0.475, 0.525), outside_val=(0, 0, 0))

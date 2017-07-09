@@ -55,6 +55,8 @@ public:
     Vector gravity;
     bool apic;
     bool async;
+    real delta_x;
+    real inv_delta_x;
     real affine_damping;
     real base_delta_t;
     real maximum_delta_t;

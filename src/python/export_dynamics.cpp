@@ -16,7 +16,27 @@ PYBIND11_MAKE_OPAQUE(std::vector<taichi::RenderParticle>);
 
 TC_NAMESPACE_BEGIN
 
+template <int DIM>
+void register_simulation(py::module &m) {
+    using Sim = Simulation<DIM>;
+    py::class_<Sim, std::shared_ptr<Sim>>(m,
+                                          (std::string("Simulation") + std::to_string(DIM) + std::string("D")).c_str())
+            .def(py::init<>())
+            .def("initialize", &Sim::initialize)
+            .def("D", [](Sim *) { return Sim::D; })
+            .def("add_particles", &Sim::add_particles)
+            .def("update", &Sim::update)
+            .def("step", &Sim::step)
+            .def("get_current_time", &Sim::get_current_time)
+            .def("get_render_particles", &Sim::get_render_particles)
+            .def("set_levelset", &Sim::set_levelset)
+            .def("get_mpi_world_rank", &Sim::get_mpi_world_rank)
+            .def("test", &Sim::test);
+
+}
+
 void export_dynamics(py::module &m) {
+    m.def("register_levelset2d", &AssetManager::insert_asset<LevelSet2D>);
     m.def("register_levelset3d", &AssetManager::insert_asset<LevelSet3D>);
 
     py::class_<Fluid>(m, "Fluid")
@@ -32,17 +52,8 @@ void export_dynamics(py::module &m) {
             .def("get_pressure", &Fluid::get_pressure)
             .def("add_source", &Fluid::add_source);
 
-    py::class_<Simulation3D, std::shared_ptr<Simulation3D>>(m, "Simulation3D")
-            .def(py::init<>())
-            .def("initialize", &Simulation3D::initialize)
-            .def("add_particles", &Simulation3D::add_particles)
-            .def("update", &Simulation3D::update)
-            .def("step", &Simulation3D::step)
-            .def("get_current_time", &Simulation3D::get_current_time)
-            .def("get_render_particles", &Simulation3D::get_render_particles)
-            .def("set_levelset", &Simulation3D::set_levelset)
-            .def("get_mpi_world_rank", &Simulation3D::get_mpi_world_rank)
-            .def("test", &Simulation3D::test);
+    register_simulation<2>(m);
+    register_simulation<3>(m);
 
     typedef std::vector<Fluid::Particle> FluidParticles;
     py::class_<FluidParticles>(m, "FluidParticles");

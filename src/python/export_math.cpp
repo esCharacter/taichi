@@ -251,14 +251,37 @@ struct VectorRegistration<VectorND<DIM, T, ISE>> {
 
         auto cls = py::class_<Vector, VectorBase>(m, vector_name.c_str());
         cls.def(VectorInitializer<DIM, T>::get())
+                .def(py::init<T>())
                 .def(py::self * real())
                 .def(T() * py::self)
-                .def(py::self / real())
+                .def(py::self * T())
                 .def(py::self + py::self)
                 .def(py::self - py::self)
-                .def(-py::self)
                 .def(py::self * py::self)
-                .def(py::self / py::self);
+                .def(py::self / py::self)
+                .def(py::self += py::self)
+                .def(py::self -= py::self)
+                .def(py::self *= py::self)
+                .def(py::self /= py::self)
+                .def(py::self /= py::self)
+                .def(py::self == py::self)
+                .def(py::self != py::self)
+                .def(-py::self)
+                .def("cast_real", &Vector::template cast<real>)
+                .def("cast_float32", &Vector::template cast<float32>)
+                .def("cast_float64", &Vector::template cast<float64>)
+                .def("cast_int", &Vector::template cast<int>)
+                .def("D", [](Vector *) { return Vector::D; })
+                .def("__len__", [](Vector *) { return Vector::D; })
+                .def("ise", [](Vector *) { return Vector::ise; })
+                .def("simd", [](Vector *) { return Vector::simd; })
+                .def("abs", &Vector::abs)
+                .def("floor", &Vector::floor)
+                .def("sin", &Vector::sin)
+                .def("cos", &Vector::cos)
+                .def("min", &Vector::min)
+                .def("max", &Vector::max);
+
         register_vec_field<0, Vector>(cls);
         register_vec_field<1, Vector>(cls);
         register_vec_field<2, Vector>(cls);
@@ -384,17 +407,17 @@ void export_math(py::module &m) {
 
     m.def("gaussian_blur_2d_real", gaussian_blur<real>);
 
-    VectorRegistration<Vector1>::run(m);
+    // VectorRegistration<Vector1>::run(m);
     VectorRegistration<Vector2>::run(m);
     VectorRegistration<Vector3>::run(m);
     VectorRegistration<Vector4>::run(m);
 
-    VectorRegistration<Vector1d>::run(m);
+    // VectorRegistration<Vector1d>::run(m);
     VectorRegistration<Vector2d>::run(m);
     VectorRegistration<Vector3d>::run(m);
     VectorRegistration<Vector4d>::run(m);
 
-    VectorRegistration<Vector1i>::run(m);
+    // VectorRegistration<Vector1i>::run(m);
     VectorRegistration<Vector2i>::run(m);
     VectorRegistration<Vector3i>::run(m);
     VectorRegistration<Vector4i>::run(m);

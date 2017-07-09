@@ -1,6 +1,6 @@
 import math
 
-from taichi.dynamics.mpm import MPM3
+from taichi.dynamics.mpm import MPM
 from taichi.core import tc_core
 from taichi.misc.util import Vector
 from taichi.visual import *
@@ -65,11 +65,10 @@ def render_frame(frame, d, t):
 
 if __name__ == '__main__':
     downsample = grid_downsample
-    resolution = (255 / downsample, 255 / downsample, 255 / downsample)
-    print resolution
+    res = (255 / downsample, 255 / downsample, 255 / downsample)
     frame_dt = 0.01
 
-    mpm = MPM3(resolution=resolution, gravity=(0, -40, 0), async=True, num_threads=2, strength_dt_mul=2, base_delta_t=1e-7)
+    mpm = MPM(res=res, gravity=(0, -40, 0), async=True, num_threads=2, strength_dt_mul=2, base_delta_t=1e-7)
     # mpm = MPM3(resolution=resolution, gravity=(0, -40, 0), async=False, num_threads=2, base_delta_t=0.00010237)
 
     levelset = mpm.create_levelset()

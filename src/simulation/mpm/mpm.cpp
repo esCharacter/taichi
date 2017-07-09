@@ -39,7 +39,9 @@ TC_NAMESPACE_BEGIN
 template <int DIM>
 void MPM<DIM>::initialize(const Config &config) {
     Simulation<DIM>::initialize(config);
-    res = config.get("resolution", VectorI(1.0f));
+    res = config.get_vec3i("res");
+    delta_x = config.get("delta_x", delta_x);
+    inv_delta_x = 1.0f / delta_x;
     gravity = config.get("gravity", Vector(0.0f));
     use_mpi = config.get("use_mpi", false);
     apic = config.get("apic", true);
@@ -80,9 +82,9 @@ void MPM<DIM>::add_particles(const Config &config) {
     std::shared_ptr<Texture> density_texture = AssetManager::get_asset<Texture>(config.get_int("density_tex"));
     auto region = RegionND<DIM>(Vectori(0), res);
     for (auto &ind: region) {
-        Vector coord = (ind.get_ipos().template cast<real>() + Vector::rand()) / res.template cast<real>();
+        Vector coord = (ind.get_ipos().template cast<real>() + Vector::rand()) * this->delta_x;
         real num = density_texture->sample(coord).x;
-        int t = (int)num + (rand() < num - int(num));
+        int t = (int)num + (rand() < fract(num));
         for (int l = 0; l < t; l++) {
             Particle *p = nullptr;
             if (config.get("type", std::string("ep")) == std::string("ep")) {
@@ -877,6 +879,8 @@ class MPM<2>;
 
 template
 class MPM<3>;
+
+TC_IMPLEMENTATION(Simulation2D, MPM2D, "mpm");
 
 TC_IMPLEMENTATION(Simulation3D, MPM3D, "mpm");
 

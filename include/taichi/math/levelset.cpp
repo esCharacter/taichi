@@ -153,7 +153,8 @@ Array3D<real> LevelSet<3>::rasterize(Vector3i output_res) {
 }
 
 template <int DIM>
-void LevelSet<DIM>::add_plane(const LevelSet<DIM>::Vector &normal, real d) {
+void LevelSet<DIM>::add_plane(const LevelSet<DIM>::Vector &normal_, real d) {
+    Vector normal = normalized(normal_);
     real coeff = 1.0f / length(normal);
     for (auto &ind : this->get_region()) {
         Vector sample = ind.get_pos();

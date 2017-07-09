@@ -7,6 +7,18 @@
     the MIT license as written in the LICENSE file.
 *******************************************************************************/
 
+///////////////////////////
+///       _.----._
+///      /      \#\
+///     |  T    /##\
+///     |      ####|
+///     \    /###C#/
+///      \_  \####/
+///        ''--''
+///////////////////////////
+
+
+
 #include <taichi/common/util.h>
 #include <taichi/common/meta.h>
 #include <taichi/common/task.h>
