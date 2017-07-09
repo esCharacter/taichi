@@ -7,4 +7,24 @@
     the MIT license as written in the LICENSE file.
 *******************************************************************************/
 
-#include "math/math.h"
+#pragma once
+
+#include <taichi/util.h>
+
+TC_NAMESPACE_BEGIN
+
+constexpr int mpm_kernel_order = 3;
+
+template <int DIM, int ORDER>
+struct MPMKernel;
+
+template <int DIM>
+class MPM;
+
+template <int DIM>
+class MPMScheduler;
+
+template <int DIM>
+class MPMParticle;
+
+TC_NAMESPACE_END

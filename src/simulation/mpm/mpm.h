@@ -23,14 +23,17 @@
 #include <taichi/math/levelset.h>
 #include <taichi/system/threading.h>
 
+#include "mpm_fwd.h"
 #include "mpm_scheduler.h"
 #include "mpm_particle.h"
-#include "mpm_kernel.h"
 
 TC_NAMESPACE_BEGIN
 
 // Supports FLIP?
 // #define TC_MPM_WITH_FLIP
+
+template <int DIM, int ORDER>
+struct MPMKernel;
 
 template <int DIM>
 class MPM : public Simulation<DIM> {
@@ -43,7 +46,6 @@ public:
     using MatrixP = MatrixND<DIM + 1, real>;
     using Kernel = MPMKernel<DIM, mpm_kernel_order>;
     static const int D = DIM;
-    static const int kernel_size;
     using Particle = MPMParticle<DIM>;
     std::vector<MPMParticle<DIM> *> particles; // for (copy) efficiency, we do not use smart pointers here
     ArrayND<DIM, Vector> grid_velocity;

@@ -10,21 +10,12 @@
 
 #pragma once
 
-#include <immintrin.h>
+#include <taichi/util.h>
 #include <taichi/math/qr_svd.h>
-#include <taichi/common/meta.h>
 #include <taichi/math/array.h>
 #include <taichi/math/levelset.h>
-#include <taichi/math/math.h>
 
 TC_NAMESPACE_BEGIN
-
-inline void check_singular_value_non_negative(Matrix3 &sig) {
-    for (int i = 0; i < 3; i++) {
-        assert_info(sig[i][i] > -eps, "simngular values should not be negative, instead of " +
-                                      std::to_string(sig[i][i]));
-    }
-}
 
 template <int DIM>
 class MPMParticle {
@@ -279,7 +270,7 @@ public:
 
     void project(Matrix sigma, real alpha, Matrix &sigma_out, real &out) {
         const real d = this->D;
-        Matrix epsilon(sigma.diag().template map(log));
+        Matrix epsilon(sigma.diag().map(log));
         real tr = epsilon.diag().sum();
         Matrix epsilon_hat = epsilon - (tr) / d * Matrix(1.0f);
         real epsilon_for = epsilon.diag().length();
@@ -310,7 +301,7 @@ public:
         assert_info(sig[2][2] > 0, "negative singular value");
 #endif
 
-        Matrix log_sig(sig.diag().map(log));
+        Matrix log_sig(sig.diag().template map(log));
         Matrix inv_sig(Vector(1.f) / sig.diag());
         Matrix center =
                 2.0f * mu_0 * inv_sig * log_sig + lambda_0 * (log_sig.diag().sum()) * inv_sig;

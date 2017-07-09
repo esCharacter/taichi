@@ -33,22 +33,21 @@ void MPM<DIM>::rasterize(real delta_t) {
         E += p.get_kenetic_energy();
         const Vector pos = p.pos, v = p.v;
         const real mass = p.mass;
-        const MatrixP apic_b_inv_d_mass = MatrixP(p.apic_b) * ((6.0f - kernel_size) * mass);
+        const MatrixP apic_b_inv_d_mass = MatrixP(p.apic_b) * ((6.0f - Kernel::order) * mass);
         const Vector mass_v = mass * v;
-        MatrixP apic_b_inv_d_mass_with_mass_v = apic_b_inv_d_mass;
-        apic_b_inv_d_mass_with_mass_v[D] = mass_v;
-        apic_b_inv_d_mass_with_mass_v[D][D] = mass;
-
-        // apic_b_mass_with_mass_v
-        // ----------------------------
-        //               |
-        //    APIC       |   mass * v
-        // --------------|
-        //       0             mass
-        // ----------------------------
-
         const MatrixP delta_t_tmp_force(delta_t * p.tmp_force);
-        Vectori c_min([&](int i) -> int { return this->get_stencil_start(pos[i]); });
+        RegionND<D> region;
+        Vectori grid_base_pos([&](int i) {return Kernel::get_stencil_start(pos[i]);});
+        Kernel kernel(pos);
+
+        for (auto &ind: region) {
+            auto i = ind.get_ipos() + grid_base_pos;
+            Vector dpos = - pos;
+            VectorP dw_w = kernel.get_dw_w(ind.get_ipos());
+            grid_velocity_and_mass[i] +=
+                    dw_w[D] * Vector(mass_v + apic_b_inv_d_mass * dpos, mass) + delta_t_tmp_force * Vector(dw_w);
+        }
+
     });
     P(E);
 #ifdef TC_MPM_WITH_FLIP
@@ -68,7 +67,6 @@ void MPM<DIM>::resample() {
         Matrix b(0.0f);
         Matrix cdg(0.0f);
         Vector pos = p.pos;
-        TC_MPM3D_PREPROCESS_KERNELS
 
         if (!apic) {
             b = Matrix(0.0f);

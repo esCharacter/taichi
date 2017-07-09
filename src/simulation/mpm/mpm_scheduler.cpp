@@ -9,6 +9,7 @@
 *******************************************************************************/
 
 #include "mpm_scheduler.h"
+#include "mpm_particle.h"
 
 TC_NAMESPACE_BEGIN
 

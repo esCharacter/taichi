@@ -17,7 +17,10 @@ TC_NAMESPACE_BEGIN
 
 class Task : public Unit {
 public:
-    virtual void run(const std::vector<std::string> &parameters) = 0;
+    virtual void run(const std::vector<std::string> &parameters) {
+        this->run();
+    }
+    virtual void run() {}
 };
 
 TC_INTERFACE(Task)

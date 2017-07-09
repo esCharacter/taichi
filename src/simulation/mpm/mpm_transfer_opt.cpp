@@ -36,7 +36,7 @@ void MPM<2>::rasterize(real delta_t) {
             TC_MPM3D_PREPROCESS_KERNELS
             const Vector pos = p.pos, v = p.v;
             const real mass = p.mass;
-            const MatrixP apic_b_inv_d_mass = MatrixP(p.apic_b) * ((6.0f - kernel_size) * mass);
+            const MatrixP apic_b_inv_d_mass = MatrixP(p.apic_b) * ((6.0f - Kernel::order) * mass);
             const Vector mass_v = mass * v;
             MatrixP apic_b_inv_d_mass_with_mass_v = apic_b_inv_d_mass;
             apic_b_inv_d_mass_with_mass_v[D] = mass_v;

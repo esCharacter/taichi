@@ -14,10 +14,10 @@
 #include <vector>
 #include <string>
 #include <taichi/math/array.h>
-#include <taichi/math/math.h>
+#include <taichi/math.h>
 #include <taichi/math/levelset.h>
 
-#include "mpm_particle.h"
+#include "mpm_fwd.h"
 
 TC_NAMESPACE_BEGIN
 
