@@ -221,7 +221,7 @@ public:
 
     void project(Matrix sigma, real alpha, Matrix &sigma_out, real &out) {
         const real d = this->D;
-        Matrix epsilon(sigma.diag().map(log));
+        Matrix epsilon(sigma.diag().map(logf));
         real tr = epsilon.diag().sum();
         Matrix epsilon_hat = epsilon - (tr) / d * Matrix(1.0f);
         real epsilon_for = epsilon.diag().length();
@@ -236,7 +236,7 @@ public:
                 out = 0;
             } else {
                 Matrix h = epsilon - delta_gamma / epsilon_hat_for * epsilon_hat;
-                sigma_out = Matrix(h.diag().map(exp));
+                sigma_out = Matrix(h.diag().map(expf));
                 out = delta_gamma;
             }
         }
@@ -252,7 +252,7 @@ public:
         assert_info(sig[2][2] > 0, "negative singular value");
 #endif
 
-        Matrix log_sig(sig.diag().template map(log));
+        Matrix log_sig(sig.diag().template map(logf));
         Matrix inv_sig(Vector(1.f) / sig.diag());
         Matrix center =
                 2.0f * mu_0 * inv_sig * log_sig + lambda_0 * (log_sig.diag().sum()) * inv_sig;
