@@ -27,6 +27,7 @@
 #include "mpm_kernel.h"
 #include "mpm_scheduler.h"
 #include "mpm_particle.h"
+#include <taichi/visualization/pakua.h>
 
 TC_NAMESPACE_BEGIN
 
@@ -52,6 +53,7 @@ public:
     ArrayND<DIM, Vector> grid_velocity;
     ArrayND<DIM, real> grid_mass;
     ArrayND<DIM, VectorP> grid_velocity_and_mass;
+    std::shared_ptr<Pakua> pakua;
 #ifdef TC_MPM_WITH_FLIP
     ArrayND<DIM, Vector> grid_velocity_backup;
 #endif
@@ -133,18 +135,7 @@ public:
 
     virtual void add_particles(const Config &config) override;
 
-    virtual void step(real dt) override {
-        if (dt < 0) {
-            substep();
-            request_t = this->current_t;
-        } else {
-            request_t += dt;
-            while (this->current_t + base_delta_t < request_t) {
-                substep();
-            }
-            P(t_int_increment * base_delta_t);
-        }
-    }
+    virtual void step(real dt) override;
 
     void synchronize_particles();
 

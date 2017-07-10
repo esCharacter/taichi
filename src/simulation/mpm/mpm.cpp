@@ -68,6 +68,12 @@ void MPM<DIM>::initialize(const Config &config) {
     grid_locks.initialize(res + VectorI(1), 0, Vector(0.0f));
     scheduler.initialize(res, base_delta_t, cfl, strength_dt_mul, &this->levelset, mpi_world_rank, grid_block_size,
                          delta_x);
+
+
+    pakua = create_instance<Pakua>("webgl");
+    Config config_;
+    config_.set("port", 9563);
+    pakua->initialize(config_);
 }
 
 template <int DIM>
@@ -189,6 +195,28 @@ void MPM<DIM>::particle_collision_resolution(real t) {
             p.resolve_collision(this->levelset, t);
         }
     });
+}
+
+template <int DIM>
+void MPM<DIM>::step(real dt) {
+    if (dt < 0) {
+        substep();
+        request_t = this->current_t;
+    } else {
+        request_t += dt;
+        while (this->current_t + base_delta_t < request_t) {
+            substep();
+        }
+        P(t_int_increment * base_delta_t);
+    }
+
+    pakua->start();
+    {
+        for (auto p: particles) {
+            pakua->add_particle(Vector3(p->pos), p->color);
+        }
+    }
+    pakua->finish();
 }
 
 template <int DIM>

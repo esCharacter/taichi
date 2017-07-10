@@ -14,7 +14,7 @@
 
 TC_NAMESPACE_BEGIN
 
-class Pakua {
+class Pakua : Unit {
 public:
     using Vector = VectorND<3, real>;
 
@@ -23,7 +23,7 @@ public:
         //...
     }
 
-    void add_particle(Vector pos, Vector color) {
+    virtual void add_particle(Vector pos, Vector color) {
         // Add a particle to buffer
     }
 
@@ -37,6 +37,8 @@ public:
 
     }
 };
+
+TC_INTERFACE(Pakua)
 
 TC_NAMESPACE_END
 

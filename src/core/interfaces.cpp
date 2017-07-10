@@ -27,6 +27,7 @@
 #include <taichi/visual/framebuffer.h>
 #include <taichi/visualization/particle_visualization.h>
 #include <taichi/system/benchmark.h>
+#include <taichi/visualization/pakua.h>
 
 TC_NAMESPACE_BEGIN
 
@@ -50,5 +51,6 @@ TC_INTERFACE_DEF(RayIntersection, "ray_intersection")
 TC_INTERFACE_DEF(ParticleRenderer, "particle_renderer")
 TC_INTERFACE_DEF(Benchmark, "benchmark")
 TC_INTERFACE_DEF(Task, "task")
+TC_INTERFACE_DEF(Pakua, "pakua")
 
 TC_NAMESPACE_END
