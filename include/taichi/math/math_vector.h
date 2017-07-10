@@ -948,7 +948,7 @@ inline MatrixND<2, float32, ISE> inversed(const MatrixND<2, float32, ISE> &mat) 
     real det = determinant(mat);
     return 1.0f / det * MatrixND<2, float32, ISE>(
             VectorND<2, float32, ISE>(mat[1][1], -mat[0][1]),
-            VectorND<2, float32, ISE>(mat[1][0], mat[0][0]
+            VectorND<2, float32, ISE>(-mat[1][0], mat[0][0]
             )
     );
 }

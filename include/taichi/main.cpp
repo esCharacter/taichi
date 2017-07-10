@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
         auto task = create_instance<Task>(task_name);
         task->run(parameters);
     } else if (mode == "test") {
-        test_linalg();
+        NOT_IMPLEMENTED
     } else {
         error("Mode should be 'run' or 'test' instead of " + mode);
     }
