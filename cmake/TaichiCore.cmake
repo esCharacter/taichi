@@ -6,7 +6,9 @@ file(GLOB TAICHI_SOURCE
         "src/*/*/*/*.cpp" "src/*/*/*.cpp" "src/*/*.cpp" "src/*.cpp"
         "src/*/*/*/*.h" "src/*/*/*.h" "src/*/*.h" "src/*.h"
         "include/taichi/*/*/*/*.cpp" "include/taichi/*/*/*.cpp" "include/taichi/*/*.cpp"
-        "include/taichi/*/*/*/*.h" "include/taichi/*/*/*.h" "include/taichi/*/*.h")
+        "include/taichi/*/*/*/*.h" "include/taichi/*/*/*.h" "include/taichi/*/*.h" "pakua/*.cpp")
+
+set(TAICHI_SOURCE ${TAICHI_SOURCE} )
 
 add_library(${CORE_LIBRARY_NAME} SHARED ${TAICHI_SOURCE})
 
