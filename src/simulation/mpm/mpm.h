@@ -24,6 +24,7 @@
 #include <taichi/system/threading.h>
 
 #include "mpm_fwd.h"
+#include "mpm_kernel.h"
 #include "mpm_scheduler.h"
 #include "mpm_particle.h"
 
@@ -67,6 +68,7 @@ public:
     real cfl;
     real strength_dt_mul;
     real request_t = 0.0f;
+    real implicit_ratio;
     bool use_mpi;
     int mpi_world_size;
     int mpi_world_rank;
@@ -157,6 +159,12 @@ public:
     }
 
     void clear_boundary_particles();
+
+    void implicit_velocity_update(real t);
+
+    Vectori get_grid_base_pos(const Vector &pos) {
+        return Vectori([&](int i) -> int { return Kernel::get_stencil_start(pos[i]); });
+    }
 
     ~MPM();
 };

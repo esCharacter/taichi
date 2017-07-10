@@ -45,12 +45,28 @@ struct MPMKernelBase {
         }
     }
 
-    VectorP get_dw_w(const VectorI &k) {
+    VectorP get_dw_w(const VectorI &k) const {
         VectorP ret = w_stages[0][k[0]];
         for (int i = 1; i < DIM; i++) {
             ret *= w_stages[i][k[i]];
         }
         return ret;
+    }
+
+    Vector get_dw(const VectorI &k) const {
+        VectorP ret = w_stages[0][k[0]];
+        for (int i = 1; i < DIM; i++) {
+            ret *= w_stages[i][k[i]];
+        }
+        return Vector(ret);
+    }
+
+    real get_w(const VectorI &k) const {
+        VectorP ret = w_stages[0][k[0]];
+        for (int i = 1; i < DIM; i++) {
+            ret *= w_stages[i][k[i]];
+        }
+        return ret[D];
     }
 
     static real inv_D() {
@@ -67,7 +83,6 @@ struct MPMKernel<DIM, 2> : public MPMKernelBase<DIM, 2> {
 
     using Base = MPMKernelBase<DIM, 2>;
     using Vector = typename Base::Vector;
-
 
     MPMKernel(const Vector &pos, real inv_delta_x) {
         calculate_kernel(pos);

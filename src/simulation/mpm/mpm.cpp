@@ -31,6 +31,7 @@ void MPM<DIM>::initialize(const Config &config) {
     Simulation<DIM>::initialize(config);
     res = config.get_vec3i("res");
     delta_x = config.get("delta_x", delta_x);
+    implicit_ratio = config.get("implicit_ratio", 0.0f);
     inv_delta_x = 1.0f / delta_x;
     gravity = config.get("gravity", Vector(0.0f));
     use_mpi = config.get("use_mpi", false);
@@ -194,7 +195,7 @@ template <int DIM>
 void MPM<DIM>::substep() {
     Profiler _p("mpm_substep");
     synchronize_particles();
-    if (!particles.empty()) {
+    if (particles.empty()) {
         return;
     }
     if (async) {
@@ -241,6 +242,10 @@ void MPM<DIM>::substep() {
     TC_PROFILE("rasterize", rasterize(t_int_increment * base_delta_t));
     TC_PROFILE("normalize_grid", normalize_grid());
     TC_PROFILE("external_force", grid_apply_external_force(gravity, t_int_increment * base_delta_t));
+    if (implicit_ratio > 0) {
+        TC_PROFILE("implicit velocity update", implicit_velocity_update(t_int_increment * base_delta_t));
+        P("solved");
+    }
     TC_PROFILE("boundary_condition", grid_apply_boundary_conditions(this->levelset, this->current_t));
     TC_PROFILE("resample", resample());
     if (!async) {

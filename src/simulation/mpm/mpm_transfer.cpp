@@ -39,7 +39,7 @@ void MPM<DIM>::rasterize(real delta_t) {
         const MatrixP delta_t_tmp_force(delta_t * p.tmp_force);
         RegionND<D> region(VectorI(0), VectorI(Kernel::kernel_size));
 
-        Vectori grid_base_pos([&](int i) -> int { return Kernel::get_stencil_start(pos[i]); });
+        Vectori grid_base_pos = get_grid_base_pos(pos);
         Kernel kernel(pos, inv_delta_x);
 
         for (auto &ind: region) {
@@ -72,7 +72,7 @@ void MPM<DIM>::resample() {
         Vector pos = p.pos * inv_delta_x;
 
         RegionND<D> region(VectorI(0), VectorI(Kernel::kernel_size));
-        Vectori grid_base_pos([&](int i) -> int { return Kernel::get_stencil_start(pos[i]); });
+        Vectori grid_base_pos = get_grid_base_pos(pos);
         Kernel kernel(pos, inv_delta_x);
 
         for (auto &ind: region) {
