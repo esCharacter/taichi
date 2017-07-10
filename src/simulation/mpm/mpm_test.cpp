@@ -22,7 +22,7 @@ class TestMPMKernel : public Task {
 
         for (int l = 0; l < 3; l++) {
             auto pos = Vector::rand() * 10.0f;
-            MPMKernel<DIM, ORDER> kernel(pos);
+            MPMKernel<DIM, ORDER> kernel(pos, 1.0f);
             for (int j = 0; j < DIM; j++) {
                 P(kernel.w_cache[j]);
                 P(kernel.w_cache[j].sum());

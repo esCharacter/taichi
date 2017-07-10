@@ -29,13 +29,14 @@ struct MPMKernelBase {
     VectorP w_stages[D][kernel_size];
     Vector4 w_cache[D];
     Vector4 dw_cache[D];
+    real inv_delta_x;
 
     void shuffle() {
         for (int k = 0; k < kernel_size; k++) {
             for (int j = 0; j < D; j++) {
                 w_stages[j][k] = VectorP([&](int i) -> real {
                     if (j == i) {
-                        return dw_cache[j][k];
+                        return dw_cache[j][k] * inv_delta_x;
                     } else {
                         return w_cache[j][k];
                     }
@@ -67,8 +68,10 @@ struct MPMKernel<DIM, 2> : public MPMKernelBase<DIM, 2> {
     using Base = MPMKernelBase<DIM, 2>;
     using Vector = typename Base::Vector;
 
-    MPMKernel(const Vector &pos) {
+
+    MPMKernel(const Vector &pos, real inv_delta_x) {
         calculate_kernel(pos);
+        this->inv_delta_x = inv_delta_x;
         this->shuffle();
     }
 
@@ -95,8 +98,9 @@ struct MPMKernel<DIM, 3> : public MPMKernelBase<DIM, 3> {
     using Base = MPMKernelBase<DIM, 3>;
     using Vector = typename Base::Vector;
 
-    MPMKernel(const Vector &pos) {
+    MPMKernel(const Vector &pos, real inv_delta_x) {
         calculate_kernel(pos);
+        this->inv_delta_x = inv_delta_x;
         this->shuffle();
     }
 

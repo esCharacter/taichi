@@ -50,10 +50,14 @@ public:
     real cfl, strength_dt_mul;
     int grid_block_size;
     int node_id;
+    real delta_x;
+    real inv_delta_x;
 
     void initialize(const Vectori &sim_res, real base_delta_t, real cfl, real strength_dt_mul,
-                    DynamicLevelSet<DIM> *levelset, int node_id, int grid_block_size) {
+                    DynamicLevelSet<DIM> *levelset, int node_id, int grid_block_size, real delta_x) {
 
+        this->delta_x = delta_x;
+        this->inv_delta_x = 1.0f / delta_x;
         this->grid_block_size = grid_block_size;
 
         this->sim_res = sim_res;
@@ -159,7 +163,7 @@ public:
     void enforce_smoothness(int64 t_int_increment);
 
     Vectori get_rough_pos(const MPMParticle<DIM> *p) const {
-        return p->pos.template cast<int>() / Vectori(grid_block_size);
+        return (p->pos * inv_delta_x).template cast<int>() / Vectori(grid_block_size);
     }
 
     Vectori get_rough_pos(const IndexND<DIM> &pos) const {

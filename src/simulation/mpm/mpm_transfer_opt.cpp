@@ -1,8 +1,7 @@
 /*******************************************************************************
     Taichi - Physically based Computer Graphics Library
 
-    Copyright (c) 2016 Yuanming Hu <yuanmhu@gmail.com>
-                  2017 Yu Fang <squarefk@gmail.com>
+    Copyright (c) 2017 Yuanming Hu <yuanmhu@gmail.com>
 
     All rights reserved. Use of this source code is governed by
     the MIT license as written in the LICENSE file.
@@ -338,28 +337,8 @@ void MPM<3>::resample() {
         p.v = Vector3(v);
 #endif
         Matrix3 dg = cdg * p.dg_e * Matrix3(p.dg_p);
-#ifdef CV_ON
-        if (abnormal(dg) || abnormal(cdg) || abnormal(p.dg_e) || abnormal(p.dg_cache)) {
-            P(dg);
-            P(cdg);
-            P(p.dg_e);
-            P(p.dg_p);
-            P(p.dg_cache);
-            error("");
-        }
-#endif
         p.dg_e = cdg * p.dg_e;
         p.dg_cache = dg;
-#ifdef CV_ON
-        if (abnormal(dg) || abnormal(cdg) || abnormal(p.dg_e) || abnormal(p.dg_cache)) {
-            P(dg);
-            P(cdg);
-            P(p.dg_e);
-            P(p.dg_p);
-            P(p.dg_cache);
-            error("");
-        }
-#endif
     });
 }
 

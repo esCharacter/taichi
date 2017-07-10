@@ -31,6 +31,15 @@ using std::floor;
 const real pi{acosf(-1.0f)};
 const real eps = 1e-6f;
 
+template <int I, typename T>
+inline T pow(T a) {
+    T ret(1);
+    for (int i = 0; i < I; i++) {
+        ret *= a;
+    }
+    return ret;
+};
+
 inline float32 fract(float32 a) {
     return a - (int)floor(a);
 }
@@ -58,15 +67,9 @@ inline V lerp(T a, V x_0, V x_1) {
     return (T(1) - a) * x_0 + a * x_1;
 }
 
-
 template <typename T>
 T sqr(const T &a) {
-    return a * a;
-}
-
-template <typename T>
-T cube(const T &a) {
-    return a * a * a;
+    return pow<2>(a);
 }
 
 inline int sgn(float a) {

@@ -37,6 +37,7 @@ void MPM<DIM>::initialize(const Config &config) {
     apic = config.get("apic", true);
     async = config.get("async", false);
     mpi_initialized = false;
+    t_int_increment = 0;
     if (use_mpi) {
 #ifndef TC_USE_MPI
         error("Not compiled with MPI. Please recompile with cmake -DTC_USE_MPI=True")
@@ -64,7 +65,8 @@ void MPM<DIM>::initialize(const Config &config) {
     grid_mass.initialize(res + VectorI(1), 0, Vector(0.0f));
     grid_velocity_and_mass.initialize(res + VectorI(1), VectorP(0.0f), Vector(0.0f));
     grid_locks.initialize(res + VectorI(1), 0, Vector(0.0f));
-    scheduler.initialize(res, base_delta_t, cfl, strength_dt_mul, &this->levelset, mpi_world_rank, grid_block_size);
+    scheduler.initialize(res, base_delta_t, cfl, strength_dt_mul, &this->levelset, mpi_world_rank, grid_block_size,
+                         delta_x);
 }
 
 template <int DIM>
@@ -83,8 +85,9 @@ void MPM<DIM>::add_particles(const Config &config) {
                 p = new DPParticle<DIM>();
             }
             p->initialize(config);
-            p->pos = ind.get_ipos().template cast<real>() + Vector::rand();
-            p->mass = 1.0f;
+            p->pos = (ind.get_ipos().template cast<real>() + Vector::rand()) * delta_x;
+            p->vol = pow<D>(delta_x / 2.0f);
+            p->mass = p->vol * 1000.0f;
             p->v = config.get("initial_velocity", p->v);
             p->last_update = current_t_int;
             particles.push_back(p);
@@ -102,7 +105,7 @@ std::vector<RenderParticle> MPM<DIM>::get_render_particles() const {
     for (auto p_p : particles) {
         Particle &p = *p_p;
         // at least synchronize the position
-        Vector pos = p.pos - center + (current_t_int - p.last_update) * base_delta_t * p.v;
+        Vector pos = (p.pos + (current_t_int - p.last_update) * base_delta_t * p.v) * inv_delta_x - center;
         if (p.state == Particle::UPDATING) {
             render_particles.push_back(RenderParticle(pos, Vector4(0.8f, 0.1f, 0.2f, 0.5f)));
         } else if (p.state == Particle::BUFFER) {
@@ -229,9 +232,6 @@ void MPM<DIM>::substep() {
         TC_PROFILE("calculate force", this->calculate_force());
         {
             Profiler _("reset grids");
-//            TC_PROFILE("reset velocity_and_mass", grid_velocity_and_mass.reset(Vector4(0.0f)));
-//            TC_PROFILE("reset velocity", grid_velocity.reset(Vector(0.0f)));
-//            TC_PROFILE("reset mass", grid_mass.reset(0.0f));
             grid_velocity_and_mass.reset(Vector4(0.0f));
             grid_velocity.reset(Vector(0.0f));
             grid_mass.reset(0.0f);
@@ -240,33 +240,11 @@ void MPM<DIM>::substep() {
         TC_PROFILE("normalize_grid", normalize_grid());
         TC_PROFILE("external_force", grid_apply_external_force(gravity, t_int_increment * base_delta_t));
         TC_PROFILE("boundary_condition", grid_apply_boundary_conditions(this->levelset, this->current_t));
-#ifdef CV_ON
-        for (auto &p: particles) {
-            if (abnormal(p->dg_e)) {
-                P(p->dg_e);
-                error("abnormal DG_e (before resampling)");
-            }
-        }
-#endif
         TC_PROFILE("resample", resample());
         if (!async) {
             for (auto &p: particles) {
                 assert_info(p->state == Particle::UPDATING, "should be updating");
             }
-#ifdef CV_ON
-            for (auto &p: particles) {
-                if (abnormal(p->dg_e)) {
-                    P(p->dg_e);
-                    error("abnormal DG_e");
-                }
-            }
-            for (auto &p: this->scheduler.active_particles) {
-                if (abnormal(p->dg_e)) {
-                    P(p->dg_e);
-                    error("abnormal DG_e in active_particles");
-                }
-            }
-#endif
         }
         {
             Profiler _("plasticity");
@@ -275,7 +253,7 @@ void MPM<DIM>::substep() {
                 if (p.state == Particle::UPDATING) {
                     p.pos += (current_t_int - p.last_update) * base_delta_t * p.v;
                     p.last_update = current_t_int;
-                    p.pos = p.pos.clamp(Vector(0.0f), res - Vector(eps));
+                    p.pos = (p.pos * inv_delta_x).clamp(Vector(0.0f), res - Vector(eps)) * delta_x;
                     p.plasticity();
                 }
             });
@@ -500,7 +478,7 @@ void MPM<DIM>::clear_boundary_particles() {
     real bound = 3.0f;
     int deleted = 0;
     for (auto p : scheduler.get_active_particles()) {
-        auto pos = p->pos;
+        auto pos = p->pos * inv_delta_x;
         if (pos.min() < bound || (pos - res).max() > -bound) {
             deleted += 1;
             continue;

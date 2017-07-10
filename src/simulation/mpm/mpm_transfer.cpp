@@ -1,8 +1,7 @@
 /*******************************************************************************
     Taichi - Physically based Computer Graphics Library
 
-    Copyright (c) 2016 Yuanming Hu <yuanmhu@gmail.com>
-                  2017 Yu Fang <squarefk@gmail.com>
+    Copyright (c) 2017 Yuanming Hu <yuanmhu@gmail.com>
 
     All rights reserved. Use of this source code is governed by
     the MIT license as written in the LICENSE file.
@@ -31,14 +30,17 @@ void MPM<DIM>::rasterize(real delta_t) {
     real E = 0.0f;
     parallel_for_each_active_particle([&](Particle &p) {
         E += p.get_kenetic_energy();
-        const Vector pos = p.pos, v = p.v;
+        // Note, pos is magnified grid pos
+        const Vector pos = p.pos * inv_delta_x;
+        const Vector v = p.v;
         const real mass = p.mass;
         const Matrix apic_b_inv_d_mass = p.apic_b * (Kernel::inv_D() * mass);
         const Vector mass_v = mass * v;
         const MatrixP delta_t_tmp_force(delta_t * p.tmp_force);
         RegionND<D> region(VectorI(0), VectorI(Kernel::kernel_size));
+
         Vectori grid_base_pos([&](int i) -> int { return Kernel::get_stencil_start(pos[i]); });
-        Kernel kernel(pos);
+        Kernel kernel(pos, inv_delta_x);
 
         for (auto &ind: region) {
             auto i = ind.get_ipos() + grid_base_pos;
@@ -50,7 +52,7 @@ void MPM<DIM>::rasterize(real delta_t) {
             grid_velocity_and_mass[i] += delta;
         }
     });
-    //P(E);
+    // P(E);
 #ifdef TC_MPM_WITH_FLIP
     error("grid_back_velocity is not in the correct position");
     grid_backup_velocity();
@@ -67,11 +69,11 @@ void MPM<DIM>::resample() {
         Vector v(0.0f), bv(0.0f);
         Matrix b(0.0f);
         Matrix cdg(0.0f);
-        Vector pos = p.pos;
+        Vector pos = p.pos * inv_delta_x;
 
         RegionND<D> region(VectorI(0), VectorI(Kernel::kernel_size));
         Vectori grid_base_pos([&](int i) -> int { return Kernel::get_stencil_start(pos[i]); });
-        Kernel kernel(pos);
+        Kernel kernel(pos, inv_delta_x);
 
         for (auto &ind: region) {
             auto i = ind.get_ipos() + grid_base_pos;

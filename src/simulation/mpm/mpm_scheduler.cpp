@@ -142,7 +142,7 @@ void MPMScheduler<DIM>::update_particle_groups() {
 
 template <int DIM>
 void MPMScheduler<DIM>::insert_particle(MPMParticle<DIM> *p, bool is_new_particle) {
-    Vectori i(p->pos.template cast<int>() / Vectori(grid_block_size));
+    Vectori i = get_rough_pos(p);
     if (states.inside(i)) {
         int index = linearize(i);
         particle_groups[index].push_back(p);
@@ -221,7 +221,7 @@ void MPMScheduler<DIM>::update_dt_limits(real t) {
 template <int DIM>
 void MPMScheduler<DIM>::update_particle_states() {
     for (auto &p : get_active_particles()) {
-        Vectori low_res_pos = p->pos.template cast<int>() / Vectori(grid_block_size);
+        Vectori low_res_pos = get_rough_pos(p);
         if (states[low_res_pos] == 2) {
             p->color = Vector(1.0f);
             p->state = Particle::UPDATING;
