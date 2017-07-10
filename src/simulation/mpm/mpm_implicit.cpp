@@ -23,11 +23,6 @@ template <>
 void MPM<2>::implicit_velocity_update(real delta_t) {
     using Array = ArrayND<D, Vector>;
 
-    real max_vel = 0.0f;
-    for (auto &ind: grid_velocity.get_region()) {
-        max_vel = std::max(max_vel, grid_velocity[ind].length());
-    }
-
     auto apply = [&](const Array &x, Array &y) {
         // x: input
         // y: output
@@ -55,6 +50,7 @@ void MPM<2>::implicit_velocity_update(real delta_t) {
                 for (int j = 0; j < 4; j++) {
                     // Which is correct?
                     //p->Ap[i % 2][i / 2] += G[i][j] * dF[j % 2][j / 2];
+                    //p->Ap[i % 2][i / 2] += G[i][j] * dF[j / 2][j % 2];
                     p->Ap[i / 2][i % 2] += G[i][j] * dF[j / 2][j % 2];
                 }
             }
@@ -76,12 +72,14 @@ void MPM<2>::implicit_velocity_update(real delta_t) {
             }
         }
         for (auto &ind : grid_mass.get_region()) {
-            if (grid_mass[ind] > 0)
-                y[ind] = (implicit_ratio * pow<2>(delta_t) / grid_mass[ind]) * y[ind] + x[ind];
+            y[ind] = (implicit_ratio * pow<2>(delta_t)) * y[ind] + x[ind] * grid_mass[ind];
         }
     };
 
-    Array x = grid_velocity, rhs = grid_velocity;
+    Array x = grid_velocity, rhs = grid_velocity.same_shape();
+    for (auto &ind: grid_velocity.get_region()) {
+        rhs[ind] = grid_velocity[ind] * grid_mass[ind];
+    }
 
     auto dot = [](const Array &a, const Array &b) -> auto {
         assert_info(a.get_res() == b.get_res(), "Shape mismatch.");
@@ -94,21 +92,21 @@ void MPM<2>::implicit_velocity_update(real delta_t) {
 
     Array r, Ax, p, Ar, Ap;
 
-    int maximum_iterations = 20;
+    int maximum_iterations = 100;
     apply(x, Ax);
     r = rhs - Ax;
     p = r;
     apply(r, Ar);
     Ap = Ar;
     real rtAr = dot(r, Ar);
+    Array tmp;
     bool early_break = false;
     for (int k = 0; k < maximum_iterations; k++) {
         real Ap_sqr = dot(Ap, Ap) + 1e-38f;
         real alpha = rtAr / Ap_sqr;
         x = x.add(alpha, p);
         r = r.add(-alpha, Ap);
-
-        real d_error = std::abs(sqrt(dot(p, p)) * alpha);
+        real d_error = sqrt(dot(r, r));
         printf("CR error: %.10f\n", d_error);
         if (d_error < 1e-5f) {
             printf("CR converged at iteration %d\n", k + 1);
@@ -127,9 +125,5 @@ void MPM<2>::implicit_velocity_update(real delta_t) {
     }
     grid_velocity = x;
 }
-
-// template void MPM<2>::implicit_velocity_update(real t);
-
-// template void MPM<3>::implicit_velocity_update(real t);
 
 TC_NAMESPACE_END
