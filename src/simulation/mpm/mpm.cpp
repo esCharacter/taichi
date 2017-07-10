@@ -276,7 +276,7 @@ void MPM<DIM>::substep() {
                     p.pos += (current_t_int - p.last_update) * base_delta_t * p.v;
                     p.last_update = current_t_int;
                     p.pos = p.pos.clamp(Vector(0.0f), res - Vector(eps));
-                    //p.plasticity();
+                    p.plasticity();
                 }
             });
         }
