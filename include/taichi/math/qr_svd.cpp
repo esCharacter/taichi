@@ -12,10 +12,9 @@
 #include <Eigen/Dense>
 #include "qr_svd.h"
 
-// #define TC_USE_EIGEN_SVD
+//#define TC_USE_EIGEN_SVD
 
 TC_NAMESPACE_BEGIN
-
 
 void eigen_svd(Matrix2 m, Matrix2 &u, Matrix2 &s, Matrix2 &v) {
     Eigen::MatrixXf e_m(2, 2);
@@ -23,6 +22,7 @@ void eigen_svd(Matrix2 m, Matrix2 &u, Matrix2 &s, Matrix2 &v) {
         for (int j = 0; j < 2; ++j)
             e_m(j, i) = m[i][j];
     Eigen::JacobiSVD<Eigen::MatrixXf> e_svd(e_m, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    s = Matrix2(0.0f);
     for (int i = 0; i < 2; ++i)
         s[i][i] = e_svd.singularValues()(i);
     for (int i = 0; i < 2; ++i)
@@ -39,6 +39,7 @@ void eigen_svd(Matrix3 m, Matrix3 &u, Matrix3 &s, Matrix3 &v) {
         for (int j = 0; j < 3; ++j)
             e_m(j, i) = m[i][j];
     Eigen::JacobiSVD<Eigen::MatrixXf> e_svd(e_m, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    s = Matrix2(0.0f);
     for (int i = 0; i < 3; ++i)
         s[i][i] = e_svd.singularValues()(i);
     for (int i = 0; i < 3; ++i)

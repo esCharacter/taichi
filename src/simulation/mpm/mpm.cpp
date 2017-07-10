@@ -126,7 +126,7 @@ void MPM<DIM>::normalize_grid() {
             E += 0.5f * mass * grid_velocity[ind].length2();
         }
     }
-    P(E);
+    //P(E);
 }
 
 template <int DIM>
@@ -276,11 +276,11 @@ void MPM<DIM>::substep() {
                     p.pos += (current_t_int - p.last_update) * base_delta_t * p.v;
                     p.last_update = current_t_int;
                     p.pos = p.pos.clamp(Vector(0.0f), res - Vector(eps));
-                    p.plasticity();
+                    //p.plasticity();
                 }
             });
         }
-        // TC_PROFILE("particle_collision", particle_collision_resolution(this->current_t));
+        TC_PROFILE("particle_collision", particle_collision_resolution(this->current_t));
         if (async) {
             scheduler.enforce_smoothness(original_t_int_increment);
         }

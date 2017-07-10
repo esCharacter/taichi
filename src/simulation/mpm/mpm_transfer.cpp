@@ -50,7 +50,7 @@ void MPM<DIM>::rasterize(real delta_t) {
             grid_velocity_and_mass[i] += delta;
         }
     });
-    P(E);
+    //P(E);
 #ifdef TC_MPM_WITH_FLIP
     error("grid_back_velocity is not in the correct position");
     grid_backup_velocity();

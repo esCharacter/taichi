@@ -149,70 +149,21 @@ public:
         polar_decomp(this->dg_e, r, s);
         Matrix grad = 2 * mu * (this->dg_e - r) +
                       lambda * (j_e - 1) * j_e * inverse(transpose(this->dg_e));
-#ifdef CV_ON
-        if (abnormal(r) || abnormal(dg_e) || abnormal(s) || abnormal(inverse(dg_e)) || abnormal(grad)) {
-            P(dg_e);
-            P(dg_p);
-            P(inverse(dg_e));
-            P(inverse(transpose(dg_e)));
-            P(r);
-            P(s);
-            P(grad);
-            P(mu);
-            P(j_e);
-            P(j_p);
-            P(lambda);
-            error("");
-        }
-#endif
         return grad;
     }
 
     virtual void calculate_force() override {
-#ifdef CV_ON
-        if (abnormal(vol)) {
-            P(vol);
-            error("Abnormal volume");
-        }
-        if (abnormal(dg_e)) {
-            P(dg_e);
-        }
-#endif
         this->tmp_force = -this->vol * get_energy_gradient() * transpose(this->dg_e);
     };
 
     virtual void plasticity() override {
         Matrix svd_u, sig, svd_v;
         svd(this->dg_e, svd_u, sig, svd_v);
-#ifdef CV_ON
-        if (abnormal(sig) || abnormal(svd_u) || abnormal(svd_v)) {
-            P(dg_e);
-            P(sig);
-            P(svd_u);
-            P(svd_v);
-            error("abnormal SVD");
-        }
-#endif
         for (int i = 0; i < DIM; i++) {
-#ifdef CV_ON
-            assert_info(sig[i][i] > -eps,
-                        "sigular values should be non-negative, instead of " + std::to_string(sig[i][i]));
-#endif
             sig[i][i] = clamp(sig[i][i], 1.0f - theta_c, 1.0f + theta_s);
         }
         this->dg_e = svd_u * sig * transposed(svd_v);
         this->dg_p = inversed(this->dg_e) * this->dg_cache;
-#ifdef CV_ON
-        if (abnormal(dg_p) || abnormal(dg_e)) {
-            P(dg_e);
-            P(dg_p);
-            P(dg_cache);
-            P(sig);
-            P(svd_u);
-            P(svd_v);
-            error("abnormal singular value");
-        }
-#endif
         // clamp dg_p to ensure that it does not explode
         svd(this->dg_p, svd_u, sig, svd_v);
         for (int i = 0; i < DIM; i++) {

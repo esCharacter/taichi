@@ -46,7 +46,7 @@ struct MPMKernelBase {
 
     VectorP get_dw_w(const VectorI &k) {
         VectorP ret = w_stages[0][k[0]];
-        for (int i = 1; i < kernel_size; i++) {
+        for (int i = 1; i < DIM; i++) {
             ret *= w_stages[i][k[i]];
         }
         return ret;
