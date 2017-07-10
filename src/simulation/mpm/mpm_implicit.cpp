@@ -23,6 +23,11 @@ template <>
 void MPM<2>::implicit_velocity_update(real delta_t) {
     using Array = ArrayND<D, Vector>;
 
+    real max_vel = 0.0f;
+    for (auto &ind: grid_velocity.get_region()) {
+        max_vel = std::max(max_vel, grid_velocity[ind].length());
+    }
+
     auto apply = [&](const Array &x, Array &y) {
         // x: input
         // y: output
@@ -71,14 +76,12 @@ void MPM<2>::implicit_velocity_update(real delta_t) {
             }
         }
         for (auto &ind : grid_mass.get_region()) {
-            y[ind] = (implicit_ratio * pow<2>(delta_t)) * y[ind] + x[ind] * grid_mass[ind];
+            if (grid_mass[ind] > 0)
+                y[ind] = (implicit_ratio * pow<2>(delta_t) / grid_mass[ind]) * y[ind] + x[ind];
         }
     };
 
-    Array x = grid_velocity, rhs = grid_velocity.same_shape();
-    for (auto &ind: grid_velocity) {
-        rhs[ind] = grid_velocity[ind] * grid_mass[ind];
-    }
+    Array x = grid_velocity, rhs = grid_velocity;
 
     auto dot = [](const Array &a, const Array &b) -> auto {
         assert_info(a.get_res() == b.get_res(), "Shape mismatch.");
@@ -91,7 +94,7 @@ void MPM<2>::implicit_velocity_update(real delta_t) {
 
     Array r, Ax, p, Ar, Ap;
 
-    int maximum_iterations = 100;
+    int maximum_iterations = 20;
     apply(x, Ax);
     r = rhs - Ax;
     p = r;
@@ -106,8 +109,8 @@ void MPM<2>::implicit_velocity_update(real delta_t) {
         r = r.add(-alpha, Ap);
 
         real d_error = std::abs(sqrt(dot(p, p)) * alpha);
-        printf("CR error is %.10f.\n", d_error);
-        if (d_error < 1e-7f) {
+        printf("CR error: %.10f\n", d_error);
+        if (d_error < 1e-5f) {
             printf("CR converged at iteration %d\n", k + 1);
             early_break = true;
             break;
@@ -123,12 +126,6 @@ void MPM<2>::implicit_velocity_update(real delta_t) {
         printf("Warning: CR iteration exceeds upper limit\n");
     }
     grid_velocity = x;
-    //grid_velocity.print("vel");
-    real max_vel = 0.0f;
-    for (auto &ind: grid_velocity.get_region()) {
-        max_vel = std::max(max_vel, grid_velocity[ind].length());
-    }
-    P(max_vel);
 }
 
 // template void MPM<2>::implicit_velocity_update(real t);
