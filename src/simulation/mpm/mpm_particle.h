@@ -17,6 +17,25 @@
 
 TC_NAMESPACE_BEGIN
 
+inline MatrixND<2, real> dR_from_dF(const MatrixND<2, real> &F, const MatrixND<2, real> &R, const MatrixND<2, real> &S,
+                             const MatrixND<2, real> &dF) {
+    using Matrix = MatrixND<2, real>;
+    using Vector = VectorND<2, real>;
+
+    // set W = R^T dR = [  0    x  ]
+    //                  [  -x   0  ]
+    //
+    // R^T dF - dF^T R = WS + SW
+    //
+    // WS + SW = [ x(s21 - s12)   x(s11 + s22) ]
+    //           [ -x[s11 + s22]  x(s21 - s12) ]
+    // ----------------------------------------------------
+    Matrix lhs = transposed(R) * dF - transposed(dF) * R;
+    real x = lhs[1][0] / (S[0][0] + S[1][1]);
+    Matrix W = Matrix(Vector(0, -x), Vector(x, 0));
+    return R * W;
+};
+
 template <int DIM>
 class MPMParticle {
 public:
@@ -67,8 +86,8 @@ public:
 
     virtual void plasticity() {};
 
-    virtual SecondGrad get_energy_second_gradient() {
-        return SecondGrad(0.0f);
+    virtual Matrix get_first_piola_kirchoff(const Matrix &dF) {
+        return Matrix(0.0f);
     };
 
     virtual void resolve_collision(const DynamicLevelSet <DIM> &levelset, real t) {
@@ -198,45 +217,8 @@ public:
         return strength_limit;
     }
 
-    SecondGrad get_energy_second_gradient() override {
-        return gradient();
-    }
+    virtual Matrix get_first_piola_kirchoff(const Matrix &dF) override;
 
-    template <int DIM_ = DIM, typename std::enable_if_t<DIM_ == 3, int> = 0>
-    SecondGrad gradient() { NOT_IMPLEMENTED; return SecondGrad(0.0f);}
-
-    template <int DIM_ = DIM, typename std::enable_if_t<DIM_ == 2, int> = 0>
-    SecondGrad gradient() {
-        const Matrix &f = this->dg_e;
-        const real j_e = determinant(this->dg_e);
-        const real j_p = determinant(this->dg_p);
-        const real e = expf(hardening * (1.0f - j_p));
-        const real mu = mu_0 * e;
-        const real lambda = lambda_0 * e;
-        Matrix r, s;
-        polar_decomp(this->dg_e, r, s);
-        SecondGrad sum(0);
-        sum = Matrix4(2 * mu);
-        Vector4 x = Vector4(-r[1][0], r[0][0], -r[1][1], r[0][1]);
-        Matrix4 m_dR = Matrix4::outer_product(Vector4(x),
-                                              2.0f / (s[0][0] + s[1][1]) * mu *
-                                              Vector4(r[1][0], -r[0][0], r[1][1], -r[0][1]));
-        sum += m_dR;
-        sum += Matrix4::outer_product(Vector4(f[1][1], -f[0][1], -f[1][0], f[0][0]),
-                                      lambda * Vector4(f[1][1], -f[0][1], -f[1][0], f[0][0]));
-        float32 t = lambda * (j_e - 1);
-        sum[0][3] += t;
-        sum[1][2] -= t;
-        sum[2][1] -= t;
-        sum[3][0] += t;
-        /*
-        sum[0][0][1][1] += t;
-        sum[1][0][0][1] -= t;
-        sum[0][1][1][0] -= t;
-        sum[1][1][0][0] += t;
-        */
-        return sum;
-    };
 };
 
 template <int DIM>

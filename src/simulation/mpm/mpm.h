@@ -62,6 +62,8 @@ public:
     Vector gravity;
     bool apic;
     bool async;
+    real implicit_solve_tolerance;
+    int implicit_solve_iteration_limit;
     real delta_x;
     real inv_delta_x;
     real affine_damping;

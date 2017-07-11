@@ -534,9 +534,17 @@ struct VectorND : public VectorNDBase<DIM, T, ISE> {
     }
 
     T sum() const {
-        T ret(0);
-        for (int i = 0; i < DIM; i++) {
+        T ret = this->d[0];
+        for (int i = 1; i < DIM; i++) {
             ret += this->d[i];
+        }
+        return ret;
+    }
+
+    T prod() const {
+        T ret = this->d[0];
+        for (int i = 1; i < DIM; i++) {
+            ret *= this->d[i];
         }
         return ret;
     }
@@ -845,7 +853,23 @@ struct MatrixND {
     T sum() const {
         T ret(0);
         for (int i = 0; i < DIM; i++) {
-            ret += this->d[i]->sum();
+            ret += this->d[i].sum();
+        }
+        return ret;
+    }
+
+    T trace() const {
+        return this->diag().sum();
+    }
+
+    T tr() const {
+        return this->trace();
+    }
+
+    MatrixND elementwise_product(const MatrixND<DIM, T> &o) {
+        MatrixND ret;
+        for (int i = 0; i < DIM; i++) {
+            ret[i] = this->d[i] * o[i];
         }
         return ret;
     }

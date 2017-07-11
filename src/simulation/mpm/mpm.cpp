@@ -61,6 +61,8 @@ void MPM<DIM>::initialize(const Config &config) {
     } else {
         maximum_delta_t = base_delta_t;
     }
+    implicit_solve_tolerance = config.get("implicit_solve_tolerance", 1e-5f);
+    implicit_solve_iteration_limit = config.get("implicit_solve_iteration_limit", 100);
 
     grid_velocity.initialize(res + VectorI(1), Vector(0.0f), Vector(0.0f));
     grid_mass.initialize(res + VectorI(1), 0, Vector(0.0f));
@@ -272,7 +274,6 @@ void MPM<DIM>::substep() {
     TC_PROFILE("external_force", grid_apply_external_force(gravity, t_int_increment * base_delta_t));
     if (implicit_ratio > 0) {
         TC_PROFILE("implicit velocity update", implicit_velocity_update(t_int_increment * base_delta_t));
-        P("solved");
     }
     TC_PROFILE("boundary_condition", grid_apply_boundary_conditions(this->levelset, this->current_t));
     TC_PROFILE("resample", resample());
