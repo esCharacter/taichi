@@ -23,8 +23,16 @@ public:
         //...
     }
 
-    virtual void add_particle(Vector pos, Vector color) {
+    virtual void add_point(Vector pos, Vector color) {
         // Add a particle to buffer
+    }
+
+    virtual void add_line(const std::vector<Vector3> &pos, const std::vector<Vector3> &color) {
+        // Add a line to buffer
+    }
+
+    virtual void add_triangle(const std::vector<Vector3> &pos, const std::vector<Vector3> &color) {
+        // Add a triangle to buffer
     }
 
     // Reset and start a new canvas

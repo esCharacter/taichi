@@ -214,11 +214,49 @@ void MPM<DIM>::step(real dt) {
 
     pakua->start();
     {
+        if (DIM == 2) {
+            std::vector<Vector3> pos_v{
+                    Vector3(0.f,0.f,0.5f), Vector3(0.f,1.f,0.5f),
+                    Vector3(0.f,1.f,0.5f), Vector3(1.f,1.f,0.5f),
+                    Vector3(1.f,1.f,0.5f), Vector3(1.f,0.f,0.5f),
+                    Vector3(1.f,0.f,0.5f), Vector3(0.f,0.f,0.5f)
+            };
+            std::vector<Vector3> color_v(8, Vector3());
+            for (int i = 0; i < res[0]; i++)
+                for (int j = 0; j < res[1]; j++) {
+                    real d00 = this->levelset.sample(Vector2((real)i, (real)j), this->current_t);
+                    real d01 = this->levelset.sample(Vector2((real)i, (real)(j+1)), this->current_t);
+                    real d10 = this->levelset.sample(Vector2((real)(i+1), (real)j), this->current_t);
+                    real d11 = this->levelset.sample(Vector2((real)(i+1), (real)(j+1)), this->current_t);
+                    printf("!!!!!!!!!!!!!!!!!!!!!!!!! %.4f %.4f %.4f %.4f \n", d00, d01, d10, d11);
+                    if (d00 * d01 < 0) {
+                        real d = abs(d00 / (d00 - d01));
+                        pos_v.push_back(Vector3(delta_x * i, delta_x * (d + j), 0.5f));
+                        color_v.push_back(Vector3());
+                    }
+                    if (d00 * d10 < 0) {
+                        real d = abs(d00 / (d00 - d10));
+                        pos_v.push_back(Vector3(delta_x * (d + i), delta_x * d, 0.5f));
+                        color_v.push_back(Vector3());
+                    }
+                    if (d01 * d11 < 0) {
+                        real d = abs(d01 / (d01 - d11));
+                        pos_v.push_back(Vector3(delta_x * (d + i), delta_x * (1 + j), 0.5f));
+                        color_v.push_back(Vector3());
+                    }
+                    if (d10 * d11 < 0) {
+                        real d = abs(d10 / (d10 - d11));
+                        pos_v.push_back(Vector3(delta_x * (1 + i), delta_x * (d + j), 0.5f));
+                        color_v.push_back(Vector3());
+                    }
+                }
+            pakua->add_line(pos_v, color_v);
+        }
         for (auto p: particles) {
-            pakua->add_particle(Vector3(p->pos), p->color);
+            pakua->add_point(Vector3(p->pos, 0.5f), p->color);
         }
     }
-    pakua->finish();
+    TC_PROFILE("pakua_finish", pakua->finish());
 }
 
 template <int DIM>
