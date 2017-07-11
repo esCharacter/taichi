@@ -241,25 +241,34 @@ void MPM<DIM>::step(real dt) {
                     real d01 = this->levelset.sample(Vector2((real)i, (real)(j + 1)), this->current_t);
                     real d10 = this->levelset.sample(Vector2((real)(i + 1), (real)j), this->current_t);
                     real d11 = this->levelset.sample(Vector2((real)(i + 1), (real)(j + 1)), this->current_t);
+                    int count = 0;
                     if (d00 * d01 < 0) {
+                        count++;
                         real d = abs(d00 / (d00 - d01));
                         pos_v.push_back(Vector3(delta_x * i, delta_x * (d + j), 0.5f));
                         color_v.push_back(Vector3());
                     }
                     if (d00 * d10 < 0) {
+                        count++;
                         real d = abs(d00 / (d00 - d10));
-                        pos_v.push_back(Vector3(delta_x * (d + i), delta_x * d, 0.5f));
+                        pos_v.push_back(Vector3(delta_x * (d + i), delta_x * j, 0.5f));
                         color_v.push_back(Vector3());
                     }
                     if (d01 * d11 < 0) {
+                        count++;
                         real d = abs(d01 / (d01 - d11));
                         pos_v.push_back(Vector3(delta_x * (d + i), delta_x * (1 + j), 0.5f));
                         color_v.push_back(Vector3());
                     }
                     if (d10 * d11 < 0) {
+                        count++;
                         real d = abs(d10 / (d10 - d11));
                         pos_v.push_back(Vector3(delta_x * (1 + i), delta_x * (d + j), 0.5f));
                         color_v.push_back(Vector3());
+                    }
+                    if (count % 2 == 1) {
+                        pos_v.pop_back();
+                        color_v.pop_back();
                     }
                 }
             pakua->add_line(pos_v, color_v);
