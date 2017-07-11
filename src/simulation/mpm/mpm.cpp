@@ -228,7 +228,6 @@ void MPM<DIM>::step(real dt) {
                     real d01 = this->levelset.sample(Vector2((real)i, (real)(j+1)), this->current_t);
                     real d10 = this->levelset.sample(Vector2((real)(i+1), (real)j), this->current_t);
                     real d11 = this->levelset.sample(Vector2((real)(i+1), (real)(j+1)), this->current_t);
-                    printf("!!!!!!!!!!!!!!!!!!!!!!!!! %.4f %.4f %.4f %.4f \n", d00, d01, d10, d11);
                     if (d00 * d01 < 0) {
                         real d = abs(d00 / (d00 - d01));
                         pos_v.push_back(Vector3(delta_x * i, delta_x * (d + j), 0.5f));
