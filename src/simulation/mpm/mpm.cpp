@@ -71,6 +71,13 @@ void MPM<DIM>::initialize(const Config &config) {
     scheduler.initialize(res, base_delta_t, cfl, strength_dt_mul, &this->levelset, mpi_world_rank, grid_block_size,
                          delta_x);
 
+    imex_mask.initialize(res + VectorI(1), 0.0f, Vector(0.0f));
+
+    for (auto &ind: imex_mask.get_region()) {
+        if (ind.i < res[0] / 2) {
+            imex_mask[ind] = 1.0f;
+        }
+    }
 
     pakua = create_instance<Pakua>("webgl");
     Config config_;
@@ -222,18 +229,18 @@ void MPM<DIM>::step(real dt) {
     {
         if (DIM == 2) {
             std::vector<Vector3> pos_v{
-                    Vector3(0.f,0.f,0.5f), Vector3(0.f,1.f,0.5f),
-                    Vector3(0.f,1.f,0.5f), Vector3(1.f,1.f,0.5f),
-                    Vector3(1.f,1.f,0.5f), Vector3(1.f,0.f,0.5f),
-                    Vector3(1.f,0.f,0.5f), Vector3(0.f,0.f,0.5f)
+                    Vector3(0.f, 0.f, 0.5f), Vector3(0.f, 1.f, 0.5f),
+                    Vector3(0.f, 1.f, 0.5f), Vector3(1.f, 1.f, 0.5f),
+                    Vector3(1.f, 1.f, 0.5f), Vector3(1.f, 0.f, 0.5f),
+                    Vector3(1.f, 0.f, 0.5f), Vector3(0.f, 0.f, 0.5f)
             };
             std::vector<Vector3> color_v(8, Vector3());
             for (int i = 0; i < res[0]; i++)
                 for (int j = 0; j < res[1]; j++) {
                     real d00 = this->levelset.sample(Vector2((real)i, (real)j), this->current_t);
-                    real d01 = this->levelset.sample(Vector2((real)i, (real)(j+1)), this->current_t);
-                    real d10 = this->levelset.sample(Vector2((real)(i+1), (real)j), this->current_t);
-                    real d11 = this->levelset.sample(Vector2((real)(i+1), (real)(j+1)), this->current_t);
+                    real d01 = this->levelset.sample(Vector2((real)i, (real)(j + 1)), this->current_t);
+                    real d10 = this->levelset.sample(Vector2((real)(i + 1), (real)j), this->current_t);
+                    real d11 = this->levelset.sample(Vector2((real)(i + 1), (real)(j + 1)), this->current_t);
                     if (d00 * d01 < 0) {
                         real d = abs(d00 / (d00 - d01));
                         pos_v.push_back(Vector3(delta_x * i, delta_x * (d + j), 0.5f));

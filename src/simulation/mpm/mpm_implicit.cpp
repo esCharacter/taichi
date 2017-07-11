@@ -20,11 +20,21 @@ template <>
 void MPM<2>::implicit_velocity_update(real delta_t) {
     using Array = ArrayND<D, Vector>;
 
-    auto apply = [&](const Array &x, Array &y) {
+    // The explicit part is not involved in this solve and is used only as boundary conditions.
+
+    auto apply = [&](const Array &x_, Array &y) {
         // x: input
         // y: output
 
+        Array x = x_;
+
         // Calculate Ap : Grid -> Particle
+
+        for (auto &ind: imex_mask.get_region()) {
+            if (imex_mask[ind] == 0) {
+                x[ind] = Vector(0.0f);
+            }
+        }
         for (auto &p : scheduler.get_active_particles()) {
             const Vector pos = p->pos * inv_delta_x;
             Kernel kernel(pos, inv_delta_x);
@@ -60,13 +70,23 @@ void MPM<2>::implicit_velocity_update(real delta_t) {
             }
         }
         for (auto &ind : grid_mass.get_region()) {
-            y[ind] = (implicit_ratio * pow<2>(delta_t)) * y[ind] + x[ind] * grid_mass[ind];
+            if (imex_mask[ind] > 0) {
+                y[ind] = (implicit_ratio * pow<2>(delta_t)) * y[ind] + x[ind] * grid_mass[ind];
+            } else {
+                y[ind] = Vector(0.0f);
+            }
         }
     };
 
-    Array x = grid_velocity, rhs = grid_velocity.same_shape();
+    Array x = grid_velocity.same_shape(), rhs = grid_velocity.same_shape();
     for (auto &ind: grid_velocity.get_region()) {
-        rhs[ind] = grid_velocity[ind] * grid_mass[ind];
+        if (imex_mask[ind] > 0) {
+            x[ind] = grid_velocity[ind];
+            rhs[ind] = grid_velocity[ind] * grid_mass[ind];
+        } else {
+            x[ind] = Vector(0.0f);
+            rhs[ind] = Vector(0.0f);
+        }
     }
 
     auto dot = [](const Array &a, const Array &b) -> auto {
@@ -94,7 +114,7 @@ void MPM<2>::implicit_velocity_update(real delta_t) {
         x = x.add(alpha, p);
         r = r.add(-alpha, Ap);
         real d_error = sqrt(dot(r, r));
-        printf("CR error: %.10f  log=%.2f\n", d_error, log(d_error) / log(10.0f));
+        // printf("CR error: %.10f  log=%.2f\n", d_error, log(d_error) / log(10.0f));
         if (d_error < implicit_solve_tolerance) {
             printf("CR converged at iteration %d\n", k + 1);
             early_break = true;
@@ -110,7 +130,11 @@ void MPM<2>::implicit_velocity_update(real delta_t) {
     if (!early_break) {
         printf("Warning: CR iteration exceeds upper limit\n");
     }
-    grid_velocity = x;
+    for (auto &ind: imex_mask.get_region()) {
+        if (imex_mask[ind] > 0) {
+            grid_velocity[ind] = x[ind];
+        }
+    }
 }
 
 TC_NAMESPACE_END

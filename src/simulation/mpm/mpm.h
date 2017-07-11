@@ -52,6 +52,7 @@ public:
     std::vector<MPMParticle<DIM> *> particles; // for (copy) efficiency, we do not use smart pointers here
     ArrayND<DIM, Vector> grid_velocity;
     ArrayND<DIM, real> grid_mass;
+    ArrayND<DIM, real> imex_mask;
     ArrayND<DIM, VectorP> grid_velocity_and_mass;
     std::shared_ptr<Pakua> pakua;
 #ifdef TC_MPM_WITH_FLIP
