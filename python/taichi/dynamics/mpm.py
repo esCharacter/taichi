@@ -93,12 +93,13 @@ class MPM:
             camera = Camera('pinhole', origin=(0, r * 0.4, r * 1.4),
                             look_at=(0, -r * 0.5, 0), up=(0, 1, 0), fov=90,
                             width=10, height=10)
-        self.particle_renderer.set_camera(camera)
-        self.particle_renderer.render(image_buffer, particles)
-        img = image_buffer_to_ndarray(image_buffer)
-        img = LDRDisplay(exposure=2.0, adaptive_exposure=False).process(img)
-        show_image('Vis', img)
-        self.video_manager.write_frame(img)
+        if False:
+            self.particle_renderer.set_camera(camera)
+            self.particle_renderer.render(image_buffer, particles)
+            img = image_buffer_to_ndarray(image_buffer)
+            img = LDRDisplay(exposure=2.0, adaptive_exposure=False).process(img)
+            show_image('Vis', img)
+            self.video_manager.write_frame(img)
         self.frame += 1
 
     def get_directory(self):
@@ -108,7 +109,8 @@ class MPM:
         self.video_manager.make_video()
 
     def create_levelset(self):
-        return LevelSet(Vectori(self.res), self.Vector(0.0))
+        ls = LevelSet(Vectori(self.res), self.Vector(0.0))
+        return ls
 
     def test(self):
         return self.c.test()

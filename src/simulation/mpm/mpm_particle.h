@@ -90,15 +90,6 @@ public:
         return Matrix(0.0f);
     };
 
-    virtual void resolve_collision(const DynamicLevelSet <DIM> &levelset, real t) {
-        real phi = levelset.sample(pos, t);
-        if (phi < 0) {
-            Vector gradient = levelset.get_spatial_gradient(pos, t);
-            pos -= gradient * phi;
-            v -= dot(gradient, v) * gradient;
-        }
-    }
-
     virtual void print() {
         P(pos);
         P(v);

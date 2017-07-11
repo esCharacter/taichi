@@ -300,7 +300,8 @@ void export_math(py::module &m) {
     py::class_<Config>(m, "Config");
 
 #define EXPORT_ARRAY_2D_OF(T, C) \
-    py::class_<Array2D<real>>(m, "Array2D" #T)  \
+    py::class_<Array2D<real>> PyArray2D##T(m, "Array2D" #T); \
+        PyArray2D##T \
             .def(py::init<Vector2i>()) \
             .def("to_ndarray", &array2d_to_ndarray<Array2D<T>, C>) \
             .def("get_width", &Array2D<T>::get_width) \
@@ -312,7 +313,7 @@ void export_math(py::module &m) {
     EXPORT_ARRAY_2D_OF(real, 1);
 
 #define EXPORT_ARRAY_3D_OF(T, C) \
-    py::class_<Array3D<real>> PyArray3D##T(m, "Array3D" #T);  \
+    py::class_<Array3D<real>> PyArray3D##T(m, "Array3D" #T); \
         PyArray3D##T.def(py::init<int, int, int>()) \
             .def("get_width", &Array3D<T>::get_width) \
             .def("get_height", &Array3D<T>::get_height);
@@ -346,7 +347,7 @@ void export_math(py::module &m) {
             .def("rasterize_scale", &Array2D<Vector4>::rasterize_scale)
             .def("to_ndarray", &array2d_to_ndarray<Array2D<Vector4>, 4>);
 
-    py::class_<LevelSet2D, Array2D<real >>(m, "LevelSet2D")
+    py::class_<LevelSet2D, std::shared_ptr<LevelSet2D>>(m, "LevelSet2D", PyArray2Dreal)
             .def(py::init<Vector2i, Vector2>())
             .def("get_width", &LevelSet2D::get_width)
             .def("get_height", &LevelSet2D::get_height)
@@ -354,6 +355,7 @@ void export_math(py::module &m) {
             .def("set", static_cast<void (LevelSet2D::*)(int, int, const real &)>(&LevelSet2D::set))
             .def("add_sphere", &LevelSet2D::add_sphere)
             .def("add_polygon", &LevelSet2D::add_polygon)
+            .def("add_plane", &LevelSet2D::add_plane)
             .def("get_gradient", &LevelSet2D::get_gradient)
             .def("rasterize", &LevelSet2D::rasterize)
             .def("sample", static_cast<real(LevelSet2D::*)(real, real) const>(&LevelSet2D::sample))

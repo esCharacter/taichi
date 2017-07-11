@@ -194,7 +194,13 @@ template <int DIM>
 void MPM<DIM>::particle_collision_resolution(real t) {
     parallel_for_each_active_particle([&](Particle &p) {
         if (p.state == Particle::UPDATING) {
-            p.resolve_collision(this->levelset, t);
+            Vector pos = p.pos * inv_delta_x;
+            real phi = this->levelset.sample(pos, t);
+            if (phi < 0) {
+                Vector gradient = this->levelset.get_spatial_gradient(pos, t);
+                p.pos -= gradient * phi * delta_x;
+                p.v -= dot(gradient, p.v) * gradient;
+            }
         }
     });
 }

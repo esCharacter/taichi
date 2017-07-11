@@ -28,7 +28,7 @@ void MPM<2>::implicit_velocity_update(real delta_t) {
         for (auto &p : scheduler.get_active_particles()) {
             const Vector pos = p->pos * inv_delta_x;
             Kernel kernel(pos, inv_delta_x);
-            RegionND <D> region(VectorI(0), VectorI(Kernel::kernel_size));
+            RegionND<D> region(VectorI(0), VectorI(Kernel::kernel_size));
 
             auto grid_base_pos = get_grid_base_pos(pos);
 
@@ -50,7 +50,7 @@ void MPM<2>::implicit_velocity_update(real delta_t) {
         for (auto &p : scheduler.get_active_particles()) {
             const Vector pos = p->pos * inv_delta_x;
             Kernel kernel(pos, inv_delta_x);
-            RegionND <D> region(VectorI(0), VectorI(Kernel::kernel_size));
+            RegionND<D> region(VectorI(0), VectorI(Kernel::kernel_size));
             auto grid_base_pos = get_grid_base_pos(pos);
             Matrix VApFt = p->vol * p->Ap * transposed(p->dg_e);
             for (auto &ind: region) {
